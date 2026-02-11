@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Thanh toán | GIAY CHAT 2036</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Bảo mật: Nếu chưa login thì không cho vào trang này
+        if(!localStorage.getItem('user_login')) {
+            alert("Vui lòng đăng nhập để thanh toán!");
+            window.location.href = 'login.html';
+        }
+    </script>
+    <style>
+        :root { --red: #e60000; --black: #0a0a0a; --white: #fff; --momo: #a50064; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #f4f4f4; padding-top: 80px; color: #333; }
+        
+        nav { background: var(--black); height: 80px; padding: 0 5%; position: fixed; top: 0; width: 100%; display: flex; align-items: center; justify-content: space-between; color: white; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .logo { font-weight: 900; font-size: 22px; text-decoration: none; color: white; letter-spacing: 1px; }
+        .logo span { color: var(--red); }
+        
+        .main { max-width: 1000px; margin: 30px auto; display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px; padding: 0 20px; }
+        .box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .box h3 { border-bottom: 2px solid #f9f9f9; padding-bottom: 15px; margin-bottom: 20px; font-weight: 800; font-size: 18px; text-transform: uppercase; }
+        
+        /* CART ITEMS */
+        .item { display: flex; gap: 15px; border-bottom: 1px solid #f0f0f0; padding: 15px 0; align-items: center; position: relative; }
+        .item img { width: 80px; height: 80px; object-fit: contain; background: #f9f9f9; border-radius: 10px; }
+        .item-info b { font-size: 14px; display: block; margin-bottom: 4px; }
+        .item-info span { color: var(--red); font-weight: bold; font-size: 15px; }
+        .size-tag { font-size: 11px; background: #eee; padding: 2px 8px; border-radius: 4px; color: #555; margin-left: 5px; }
+
+        .btn-del { position: absolute; right: 5px; top: 15px; color: #ddd; cursor: pointer; transition: 0.3s; }
+        .btn-del:hover { color: var(--red); }
+
+        /* PAYMENT METHODS LIST */
+        .payment-method-item { display: flex; align-items: center; gap: 15px; padding: 15px; border: 2px solid #eee; border-radius: 10px; margin-bottom: 12px; cursor: pointer; transition: 0.3s; }
+        .payment-method-item:hover { border-color: #ccc; }
+        .payment-method-item.active { border-color: var(--red); background: #fff5f5; }
+        .payment-method-item i { font-size: 20px; width: 30px; text-align: center; }
+        .payment-method-item input { display: none; }
+
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 15px; }
+        .btn-checkout { width: 100%; background: var(--black); color: white; border: none; padding: 20px; font-weight: bold; border-radius: 10px; cursor: pointer; margin-top: 20px; font-size: 16px; transition: 0.3s; letter-spacing: 1px; }
+        .btn-checkout:hover { background: var(--red); transform: translateY(-3px); box-shadow: 0 5px 15px rgba(230,0,0,0.3); }
+
+        /* MODALS */
+        #paymentModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; }
+        .qr-card { background:white; padding:30px; border-radius:20px; width:400px; text-align:center; position:relative; }
+        
+        #success { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--black); z-index: 10000; color: white; text-align: center; padding-top: 150px; }
+        #success i { font-size: 70px; color: #00ff00; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="index.html" class="logo">GIAY<span>CHAT</span></a>
+        <a href="index.html" style="color:white; font-size:14px;"><i class="fas fa-arrow-left"></i> TIẾP TỤC MUA SẮM</a>
+    </nav>
+
+    <div class="main">
+        <div>
+            <div class="box" style="margin-bottom: 25px;">
+                <h3>Sản phẩm đã chọn</h3>
+                <div id="cart-list"></div>
+            </div>
+
+            <div class="box">
+                <h3>Chọn phương thức thanh toán</h3>
+                
+                <label class="payment-method-item active" onclick="selectMethod(this, 'cod')">
+                    <i class="fas fa-truck" style="color: #555;"></i>
+                    <div style="flex:1">
+                        <b>Thanh toán khi nhận hàng (COD)</b>
+                        <p style="font-size:12px; color:#888;">Trả tiền mặt khi shipper giao hàng</p>
+                    </div>
+                    <i class="fas fa-check-circle check-icon" style="color:var(--red)"></i>
+                </label>
+
+                <label class="payment-method-item" onclick="selectMethod(this, 'bank')">
+                    <i class="fas fa-university" style="color: #0056b3;"></i>
+                    <div style="flex:1">
+                        <b>Chuyển khoản Ngân hàng</b>
+                        <p style="font-size:12px; color:#888;">Quét mã VietQR (Xử lý nhanh)</p>
+                    </div>
+                    <i class="fas fa-circle check-icon" style="color:#eee"></i>
+                </label>
+
+                <label class="payment-method-item" onclick="selectMethod(this, 'momo')">
+                    <i class="fab fa-google-pay" style="color: var(--momo); font-size: 25px;"></i>
+                    <div style="flex:1">
+                        <b>Ví điện tử MoMo</b>
+                        <p style="font-size:12px; color:#888;">Thanh toán qua ứng dụng MoMo</p>
+                    </div>
+                    <i class="fas fa-circle check-icon" style="color:#eee"></i>
+                </label>
+            </div>
+        </div>
+
+        <div>
+            <div class="box" style="position: sticky; top: 100px;">
+                <h3>Tóm tắt đơn hàng</h3>
+                <div class="summary-row">
+                    <span>Tạm tính:</span>
+                    <b id="subtotal">0 ₫</b>
+                </div>
+                <div class="summary-row">
+                    <span>Phí vận chuyển:</span>
+                    <span style="color: #00a651; font-weight: bold;">Miễn phí</span>
+                </div>
+                <div class="summary-row" style="margin-top:20px; border-top: 1px dashed #ddd; padding-top:20px;">
+                    <span style="font-weight:bold">TỔNG CỘNG:</span>
+                    <b id="final-total" style="color:var(--red); font-size: 24px;">0 ₫</b>
+                </div>
+
+                <button class="btn-checkout" onclick="handleCheckout()">HOÀN TẤT ĐẶT HÀNG</button>
+                
+                <p style="font-size:12px; color:#999; margin-top:15px; text-align:center; line-height:1.4;">
+                    Bằng cách nhấn đặt hàng, bạn đồng ý với các điều khoản bảo mật thông tin của Sneaker Supreme.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="paymentModal">
+        <div class="qr-card">
+            <i class="fas fa-times" onclick="closePayment()" style="position:absolute; top:20px; right:20px; cursor:pointer; font-size:20px; color:#ccc;"></i>
+            <h3 id="qr-title" style="margin-bottom:10px;">QUÉT MÃ THANH TOÁN</h3>
+            <p id="qr-subtitle" style="font-size:13px; color:#666; margin-bottom:20px;">Nội dung: <b id="pay-content" style="color:var(--red)"></b></p>
+            
+            <img id="qr-image" src="" style="width:250px; border-radius:10px; border:1px solid #eee; padding:10px;">
+            
+            <div style="margin-top:20px;">
+                <button onclick="confirmPaid()" style="width:100%; padding:15px; background:var(--black); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">TÔI ĐÃ CHUYỂN KHOẢN</button>
+                <p style="font-size:12px; color:#999; margin-top:10px;">Hệ thống sẽ tự động xác nhận sau 1-3 phút.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="success">
+        <div style="margin-top: 50px;">
+            <i class="fas fa-check-circle"></i>
+            <h2 style="font-size:30px; letter-spacing:2px;">CẢM ƠN BẠN!</h2>
+            <p style="margin: 20px 0; color: #888;">Đơn hàng đã được ghi nhận. Chúng tôi sẽ sớm liên hệ xác nhận.</p>
+            <button onclick="window.location.href='index.html'" style="padding:15px 40px; border-radius:30px; border:none; cursor:pointer; font-weight:bold; background: var(--red); color: white;">TIẾP TỤC MUA SẮM</button>
+        </div>
+    </div>
+
+    <script>
+        let currentMethod = 'cod';
+
+        function loadCart() {
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            const list = document.getElementById('cart-list');
+            let total = 0;
+
+            if(cart.length === 0) {
+                list.innerHTML = `<p style="text-align:center; padding:30px; color:#999;">Giỏ hàng trống.</p>`;
+                updateTotal(0);
+                return;
+            }
+
+            list.innerHTML = cart.map((item, index) => {
+                total += item.p;
+                return `
+                    <div class="item">
+                        <img src="${item.img}">
+                        <div class="item-info">
+                            <b>${item.n}</b>
+                            <p style="font-size:12px; color:#777;">Size: ${item.size} <span class="size-tag">Hàng sẵn</span></p>
+                            <div style="margin-top:5px;"><span>${item.p.toLocaleString()} ₫</span></div>
+                        </div>
+                        <i class="fas fa-times btn-del" onclick="removeItem(${index})" title="Xóa"></i>
+                    </div>
+                `;
+            }).join('');
+            updateTotal(total);
+        }
+
+        function updateTotal(total) {
+            document.getElementById('subtotal').innerText = total.toLocaleString() + ' ₫';
+            document.getElementById('final-total').innerText = total.toLocaleString() + ' ₫';
+        }
+
+        function removeItem(idx) {
+            let cart = JSON.parse(localStorage.getItem('cart'));
+            cart.splice(idx, 1);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            loadCart();
+        }
+
+        function selectMethod(el, method) {
+            document.querySelectorAll('.payment-method-item').forEach(item => {
+                item.classList.remove('active');
+                item.querySelector('.check-icon').className = 'fas fa-circle check-icon';
+                item.querySelector('.check-icon').style.color = '#eee';
+            });
+            el.classList.add('active');
+            el.querySelector('.check-icon').className = 'fas fa-check-circle check-icon';
+            el.querySelector('.check-icon').style.color = 'var(--red)';
+            currentMethod = method;
+        }
+
+        function handleCheckout() {
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            if(cart.length === 0) return alert("Giỏ hàng của bạn đang trống!");
+
+            if(currentMethod === 'cod') {
+                showSuccess();
+            } else {
+                openQRModal();
+            }
+        }
+
+        function openQRModal() {
+            const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+            let total = 0; cart.forEach(i => total += i.p);
+            
+            const user = localStorage.getItem('user_login') || 'GUEST';
+            const code = "SUP" + Math.floor(Math.random()*9000 + 1000);
+            document.getElementById('pay-content').innerText = user + " " + code;
+
+            if(currentMethod === 'bank') {
+                document.getElementById('qr-title').innerText = "CHUYỂN KHOẢN MB BANK";
+                document.getElementById('qr-image').src = `https://img.vietqr.io/image/MB-0123456789999-compact.png?amount=${total}&addInfo=${user}%20${code}`;
+            } else {
+                document.getElementById('qr-title').innerText = "THANH TOÁN MOMO";
+                document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=2|99|0909123456|||0|0|${total}|${user}%20${code}|transfer_myqr`;
+            }
+
+            document.getElementById('paymentModal').style.display = 'flex';
+        }
+
+        function closePayment() { document.getElementById('paymentModal').style.display = 'none'; }
+
+        function confirmPaid() {
+            alert("Đã gửi yêu cầu xác nhận thanh toán!");
+            closePayment();
+            showSuccess();
+        }
+
+        function showSuccess() {
+            localStorage.setItem('cart', '[]'); // Xóa giỏ hàng sau khi đặt thành công
+            document.getElementById('success').style.display = 'block';
+        }
+
+        window.onload = loadCart;
+    </script>
+</body>
+</html>
