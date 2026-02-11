@@ -11,31 +11,93 @@
         body { background: #fcfcfc; color: #333; overflow-x: hidden; padding-top: 80px; }
         a { text-decoration: none; color: inherit; }
         /* --- NAVBAR --- */
-        nav { background: var(--black); height: 80px; display: flex; align-items: center; justify-content: space-between; padding: 0 5%; position: fixed; top: 0; width: 100%; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+       nav { background: var(--black); height: 80px; display: flex; align-items: center; justify-content: space-between; padding: 0 5%; position: fixed; top: 0; width: 100%; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .logo { color: var(--white); font-size: 24px; font-weight: 900; letter-spacing: 1px; }
         .logo span { color: var(--red); }
         .nav-center { display: flex; align-items: center; gap: 15px; flex-grow: 1; justify-content: center; }
-        .search-box { position: relative; width: 400px; }
+        .search-box { position: relative; width: 100%; max-width: 400px; }
         .search-box input { width: 100%; padding: 12px 40px 12px 20px; border-radius: 30px; border: none; background: #222; color: white; outline: none; transition: 0.3s; }
         .search-box i { position: absolute; right: 15px; top: 12px; color: #777; pointer-events: none; }
         .nav-right { display: flex; align-items: center; gap: 20px; }
         .nav-right a, .nav-btn { color: var(--white); font-size: 20px; cursor: pointer; position: relative; transition: 0.3s; background: none; border: none; }
         .badge { position: absolute; top: -8px; right: -10px; background: var(--red); color: white; font-size: 10px; padding: 2px 5px; border-radius: 10px; }
+        /* MOBILE SEARCH - GIỐNG INDEX */
+        #mobile-search-btn { display: none; }
+        .mobile-search-container { position: fixed; top: 80px; left: 0; width: 100%; background: var(--black); z-index: 999; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .mobile-search-container.active { display: block; }
+        .mobile-search-box { position: relative; padding: 15px 5%; }
+        .mobile-search-box input { width: 100%; padding: 14px 50px 14px 20px; border-radius: 30px; border: none; background: #222; color: white; outline: none; font-size: 16px; }
+        .mobile-search-box i.fa-search { position: absolute; right: 10%; top: 50%; transform: translateY(-50%); color: #777; pointer-events: none; }
+        .mobile-search-box i.fa-times { position: absolute; right: 5%; top: 50%; transform: translateY(-50%); color: #777; cursor: pointer; }
         /* --- SIDEBARS & OVERLAY --- */
-        .sidebar { position: fixed; top: 0; height: 100vh; background: white; z-index: 2000; padding: 30px; box-shadow: 0 0 30px rgba(0,0,0,0.2); transition: 0.4s; overflow-y: auto; width: 350px; }
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--overlay); z-index: 1500; opacity: 0; visibility: hidden; transition: 0.3s; }
-        .overlay.active { opacity: 1; visibility: visible; }
-        .history-sidebar, .user-sidebar { right: -350px; }
-        .history-sidebar.active, .user-sidebar.active { right: 0; }
-        .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
-        /* History Item */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            max-width: 380px;
+            height: 100vh;
+            background: white;
+            z-index: 2000;
+            padding: 20px;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.25);
+            overflow-y: auto;
+            transform: translateX(-100%);
+            transition: transform 0.4s ease-in-out;
+        }
+        .filter-sidebar {
+            transform: translateX(-100%);
+        }
+        .filter-sidebar.active {
+            transform: translateX(0);
+        }
+        .history-sidebar,
+        .user-sidebar {
+            left: auto;
+            right: 0;
+            transform: translateX(100%);
+            box-shadow: 10px 0 30px rgba(0,0,0,0.25);
+        }
+        .history-sidebar.active,
+        .user-sidebar.active {
+            transform: translateX(0);
+        }
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--overlay);
+            z-index: 1500;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+        }
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.35s ease, visibility 0s linear 0s;
+        }
+        .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #eee; padding-bottom: 15px; } /* History Item */
         .history-item { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; border-bottom: 1px solid #f9f9f9; padding-bottom: 12px; cursor: pointer; position: relative; }
         .history-item img { width: 60px; height: 60px; object-fit: cover; border-radius: 5px; }
         .history-item h4 { font-size: 13px; margin-bottom: 3px; }
         .history-item p { color: var(--red); font-size: 12px; font-weight: bold; }
         .history-item i.fa-times { position: absolute; right: 0; top: 50%; transform: translateY(-50%); color: #999; cursor: pointer; font-size: 14px; }
         /* --- MAIN PRODUCT DETAIL --- */
-        .wrapper { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 1.2fr 1fr; gap: 50px; padding: 0 20px; }
+     .wrapper { max-width: 1200px; margin: 40px auto; display: grid; grid-template-columns: 1.2fr 1fr; gap: 50px; padding: 0 20px; }
+        .img-zone { position: sticky; top: 100px; }
+        .main-img-box { background: #f8f8f8; border-radius: 20px; padding: 20px; height: 450px; margin-bottom: 15px; overflow: hidden; position: relative; }
+        .main-img-box img { max-width: 100%; max-height: 100%; object-fit: contain; transition: 0.5s ease; }
+        .thumb-list { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .thumb-item { width: 80px; height: 80px; border: 2px solid transparent; border-radius: 10px; overflow: hidden; cursor: pointer; opacity: 0.6; transition: 0.3s; background: #f8f8f8; }
+        .thumb-item.active { border-color: var(--red); opacity: 1; }
+        .info-zone h1 { font-size: 32px; font-weight: 900; margin-bottom: 10px; line-height: 1.2; }
+        .price { font-size: 28px; color: var(--red); font-weight: 800; margin-bottom: 20px; }
+        .slides { display: flex; height: 100%; transition: transform 0.5s ease-in-out; }
+        .slides img { width: 100%; height: 100%; flex-shrink: 0; object-fit: contain; padding: 20px; }
+        .image-counter { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; padding: 5px 10px; border-radius: 10px; font-size: 12px; }
+        .prev, .next { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 18px; }
+        .prev { left: 10px; }
+        .next { right: 10px; }
         /* GALLERY SECTION */
         .img-zone { position: sticky; top: 100px; }
         .main-img-box { background: #f8f8f8; border-radius: 20px; padding: 20px; display: flex; align-items: center; justify-content: center; height: 450px; margin-bottom: 15px; overflow: hidden; position: relative; display: block !important; }
@@ -61,82 +123,307 @@
         object-fit: contain; 
         padding: 20px;
         }
-        /* Specs Box */
-        .product-specs { margin: 25px 0; padding: 20px; background: #fff; border: 1px solid #eee; border-radius: 12px; font-size: 14px; color: #555; box-shadow: 0 5px 15px rgba(0,0,0,0.03); }
+       /* Specs, Size, Button */
+        .product-specs { margin: 25px 0; padding: 20px; background: #fff; border: 1px solid #eee; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.03); }
         .product-specs li { margin-bottom: 12px; display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; padding-bottom: 8px; }
-        .product-specs li:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-        .product-specs li strong { color: var(--black); }
-        /* Size Selector */
+        .product-specs li:last-child { border-bottom: none; }
         .size-section { margin: 30px 0; }
         .size-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
         .size-btn { width: 50px; height: 40px; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
-        .size-btn:hover:not(.disabled) { border-color: var(--black); }
         .size-btn.active { background: var(--black); color: white; border-color: var(--black); transform: scale(1.1); }
-        .size-btn.disabled { background: #f5f5f5; color: #ccc; border-color: #eee; cursor: not-allowed; position: relative; overflow: hidden; }
+        .size-btn.disabled { background: #f5f5f5; color: #ccc; cursor: not-allowed; position: relative; }
         .size-btn.disabled::after { content: ''; position: absolute; width: 100%; height: 1px; background: #ccc; transform: rotate(45deg); }
         /* SIZE GUIDE MODAL */
         .size-guide-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; z-index: 2500; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); width: 90%; max-width: 500px; display: none; }
-        .size-guide-modal.active { display: block; animation: popIn 0.3s; }
+        .size-guide-modal.active { display: block; }
         .sg-table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: center; font-size: 14px; }
         .sg-table th { background: var(--black); color: white; padding: 10px; }
         .sg-table td { border: 1px solid #eee; padding: 8px; }
         .sg-close { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 20px; color: #999; }
         .sg-close:hover { color: var(--red); }
         @keyframes popIn { from {opacity: 0; transform: translate(-50%, -60%);} to {opacity: 1; transform: translate(-50%, -50%);} }
-        .btn-add { width: 100%; padding: 18px; background: var(--red); color: white; border: none; font-weight: bold; font-size: 16px; border-radius: 8px; cursor: pointer; margin-top: 20px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
-        .btn-add:hover { background: #cc0000; box-shadow: 0 5px 15px rgba(230, 0, 0, 0.3); }
+        .btn-add { width: 100%; padding: 18px; background: var(--red); color: white; border: none; font-weight: bold; font-size: 16px; border-radius: 8px; cursor: pointer; margin-top: 20px; transition: 0.3s; text-transform: uppercase; }
+        .btn-add:hover { background: #cc0000; }
         /* --- TABS SECTION --- */
-        .tabs { max-width: 1200px; margin: 50px auto; padding: 0 20px; }
-        .tab-head { border-bottom: 2px solid #eee; display: flex; gap: 40px; margin-bottom: 30px; }
-        .tab-btn { background: none; border: none; padding: 15px 0; font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent; color: #999; font-size: 16px; transition: 0.3s; }
-        .tab-btn:hover { color: var(--black); }
-        .tab-btn.active { border-color: var(--red); color: var(--black); }
-        .tab-content { display: none; line-height: 1.8; color: #555; animation: fadeIn 0.5s; }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* --- REVIEWS & COMMENTS CSS --- */
-        .review-container { display: grid; grid-template-columns: 1fr 2fr; gap: 40px; }
-        .review-form { background: #f9f9f9; padding: 30px; border-radius: 12px; height: fit-content; }
-        .review-form h3 { margin-bottom: 20px; font-size: 18px; }
-        .star-rating { margin-bottom: 15px; font-size: 24px; color: #ddd; cursor: pointer; display: inline-block; }
-        .star-rating i:hover, .star-rating i.hovered, .star-rating i.selected { color: var(--gold); }
-        .inp-group { margin-bottom: 15px; }
-        .inp-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; }
-        .inp-group input, .inp-group textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
-        .inp-group textarea { resize: vertical; height: 100px; }
-        /* Image Upload */
-        .upload-box { border: 2px dashed #ccc; padding: 20px; text-align: center; border-radius: 6px; cursor: pointer; transition: 0.3s; background: white; }
-        .upload-box:hover { border-color: var(--red); color: var(--red); }
-        #preview-imgs { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-        .prev-img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
-        /* Review List */
-        .review-list { display: flex; flex-direction: column; gap: 20px; }
-        .review-item { border-bottom: 1px solid #eee; padding-bottom: 20px; }
-        .r-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .r-user { display: flex; align-items: center; gap: 10px; font-weight: bold; }
-        .r-avatar { width: 40px; height: 40px; background: #ddd; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #555; }
-        .r-stars { color: var(--gold); font-size: 12px; }
-        .r-date { font-size: 12px; color: #999; }
-        .r-content { margin-bottom: 10px; }
-        .r-imgs { display: flex; gap: 10px; margin-top: 10px; }
-        .r-imgs img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; cursor: pointer; }
+        /* TABS & REVIEWS - ĐÃ CHỈNH SỬA HOÀN CHỈNH */
+.tabs {
+    max-width: 1200px;
+    margin: 50px auto;
+    padding: 0 5%;              /* Đồng bộ với index, padding 5% */
+}.tab-head {
+    border-bottom: 2px solid #eee;
+    display: flex;
+    gap: 30px;                  /* Giảm gap để gọn hơn */
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    justify-content: center;    /* Căn giữa trên mobile */
+}
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 12px 0;            /* Giảm padding nhẹ */
+    font-weight: bold;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    color: #999;
+    font-size: 15px;            /* Giảm nhẹ font cho mobile */
+    transition: 0.3s;
+    white-space: nowrap;        /* Ngăn chữ bị cắt */
+}
+.tab-btn:hover {
+    color: var(--black);
+}
+.tab-btn.active {
+    border-color: var(--red);
+    color: var(--black);
+}
+.tab-content {
+    display: none;
+    line-height: 1.8;
+    color: #555;
+}
+.tab-content.active {
+    display: block;
+}
+/* REVIEW CONTAINER */
+.review-container {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 40px;
+}
+/* FORM ĐÁNH GIÁ */
+.review-form {
+    background: #f9f9f9;
+    padding: 25px;              /* Giảm padding cho gọn */
+    border-radius: 12px;
+}
+.star-rating {
+    margin-bottom: 15px;
+    font-size: 28px;            /* Tăng nhẹ để dễ bấm trên mobile */
+    color: #ddd;
+    cursor: pointer;
+    display: inline-block;
+}
+.star-rating i.selected,
+.star-rating i:hover {
+    color: var(--gold);
+}
+.inp-group {
+    margin-bottom: 15px;
+}
+.inp-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    color: #444;
+}
+.inp-group input,
+.inp-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    outline: none;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+.inp-group input:focus,
+.inp-group textarea:focus {
+    border-color: var(--red);
+}
+.inp-group textarea {
+    resize: vertical;
+    height: 110px;
+    min-height: 80px;
+}
+/* UPLOAD BOX & PREVIEW */
+.upload-box {
+    border: 2px dashed #ccc;
+    padding: 20px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: white;
+}
+.upload-box:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: #fff5f5;
+}
+#preview-imgs {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+.prev-img {
+    width: 70px;                /* Tăng nhẹ để dễ nhìn */
+    height: 70px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    transition: transform 0.3s;
+}
+.prev-img:hover {
+    transform: scale(1.08);
+}
+/* DANH SÁCH BÌNH LUẬN */
+.review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.review-item {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 24px;
+    overflow: hidden;           /* Ngăn tràn khung */
+}
+.r-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.r-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+}
+.r-avatar {
+    width: 44px;
+    height: 44px;
+    background: #eee;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 18px;
+    font-weight: bold;
+}
+.r-stars {
+    color: var(--gold);
+    font-size: 14px;
+}
+.r-date {
+    font-size: 13px;
+    color: #888;
+}
+.r-content {
+    margin-bottom: 12px;
+    line-height: 1.6;
+    color: #444;
+}
+.r-imgs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.r-imgs img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid #eee;
+    transition: all 0.3s;
+}
+.r-imgs img:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
         /* --- RELATED PRODUCTS --- */
-        .related-section { max-width: 1200px; margin: 60px auto; padding: 0 20px; }
-        .related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 25px; }
-        .rel-card { background: white; border: 1px solid transparent; padding: 20px; border-radius: 12px; cursor: pointer; transition: 0.3s; text-align: center; }
-        .rel-card:hover { transform: translateY(-5px); border-color: #eee; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-        .rel-card img { width: 100%; height: 160px; object-fit: contain; margin-bottom: 15px; }
-        footer { background: #0a0a0a; color: #888; padding: 40px 5%; text-align: center; border-top: 5px solid #e60000; margin-top: 80px; }
-        /* Responsive */
+       /* RELATED PRODUCTS - ĐÃ FIX LỖI LẤN KHUNG */
+.related-section {
+    max-width: 1200px;
+    margin: 60px auto;
+    padding: 0 5%;          /* Giống index, padding 5% để cân đối */
+}
+.related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));  /* Giảm minmax xuống 220px để mobile không quá to */
+    gap: 20px;              /* Giảm gap để gọn hơn */
+}
+.rel-card {
+    background: white;
+    border: 1px solid #f0f0f0;   /* Thêm border nhẹ để dễ thấy khung */
+    padding: 15px;              /* Giảm padding nhẹ */
+    border-radius: 12px;
+    cursor: pointer;
+    transition: 0.3s;
+    text-align: center;
+    overflow: hidden;           /* Quan trọng: ngăn hình tràn ra ngoài card */
+}
+.rel-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--red);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+.rel-card img {
+    width: 100%;
+    height: 160px;              /* Giữ chiều cao cố định, giống index */
+    object-fit: contain;        /* Giữ nguyên contain để không bị cắt */
+    margin-bottom: 12px;
+    transition: transform 0.4s ease;
+}
+.rel-card:hover img {
+    transform: scale(1.05);     /* Zoom nhẹ khi hover, nhưng vẫn trong khung */
+}
+.rel-card h4 {
+    font-size: 14px;
+    margin: 8px 0;
+    height: 40px;
+    overflow: hidden;
+    line-height: 1.3;
+}
+.rel-card div {
+    color: var(--red);
+    font-weight: bold;
+    font-size: 15px;
+}
+        /* RESPONSIVE - GIỐNG INDEX */
+        .desktop-greeting { display: none; font-size: 14px; color: white; }
+        @media (min-width: 769px) {
+            .desktop-greeting { display: block; }
+            .search-box { width: 250px; }
+        }
         @media (max-width: 768px) {
-            .wrapper, .review-container { grid-template-columns: 1fr; }
-            .img-zone { height: 300px; position: relative; top: 0; }
-            .tab-head { overflow-x: auto; white-space: nowrap; padding-bottom: 10px; }
+            nav { padding: 0 3%; }
+            .nav-center { display: none; }
+            #mobile-search-btn { display: block; }
+            .wrapper { grid-template-columns: 1fr; gap: 30px; }
+            .img-zone { position: static; }
+            .main-img-box { height: 400px; }
+            .review-container { grid-template-columns: 1fr; }
+            .tab-head { gap: 20px; }
+        }
+        @media (max-width: 480px) {
+            body { padding-top: 70px; }
+            nav { height: 70px; }
+            .logo { font-size: 18px; }
+            .mobile-search-container { top: 70px; }
+            .mobile-search-box { padding: 10px 3%; }
+            .main-img-box { height: 300px; }
+            .info-zone h1 { font-size: 24px; }
+            .price { font-size: 24px; }
         }
     </style>
 </head>
 <body>
     <div class="overlay" id="overlay" onclick="closeAll()"></div>
+    <div class="mobile-search-container" id="mobile-search-container">
+        <div class="mobile-search-box">
+            <input type="text" id="mobile-search-input" placeholder="Tìm kiếm giày..." autocomplete="off">
+            <i class="fas fa-search"></i>
+            <i class="fas fa-times" onclick="closeMobileSearch()"></i>
+        </div>
+    </div>
     <div class="size-guide-modal" id="size-modal">
         <i class="fas fa-times sg-close" onclick="toggleSizeGuide()"></i>
         <h3 style="text-align:center; margin-bottom:10px;">BẢNG QUY ĐỔI SIZE GIÀY</h3>
@@ -418,6 +705,30 @@
         let currentRating = 0;
         let uploadedImages = [];
         const currentProd = JSON.parse(localStorage.getItem('sel_prod'));
+
+        // Thêm các hàm mobile search giống index
+        function toggleMobileSearch() {
+            const container = document.getElementById('mobile-search-container');
+            container.classList.toggle('active');
+            if (container.classList.contains('active')) {
+                document.getElementById('mobile-search-input').focus();
+            }
+        }
+        function closeMobileSearch() {
+            document.getElementById('mobile-search-container').classList.remove('active');
+        }
+
+        function closeAllSidebars() {
+            document.querySelectorAll('.sidebar').forEach(s => s.classList.remove('active'));
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('size-modal').classList.remove('active');
+        }
+
+        function toggleSizeGuide() {
+            const modal = document.getElementById('size-modal');
+            modal.classList.toggle('active');
+            document.getElementById('overlay').classList.toggle('active');
+        }
         // --- INIT ---
         window.onload = () => {
             if(!currentProd) { window.location.href = 'index.html'; return; }
