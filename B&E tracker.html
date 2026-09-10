@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="FinTrack — track expenses, budgets, insights and your monthly financial story.">
+<meta name="theme-color" content="#dc2626">
+<title>FinTrack — Personal Finance Analytics</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      colors: { ink: '#0a0a0a', brand: { 50:'#fef2f2',100:'#fee2e2',200:'#fecaca',400:'#f87171',500:'#ef4444',600:'#dc2626',700:'#b91c1c',800:'#991b1b',900:'#7f1d1d' } }
+    } }
+  };
+</script>
+<style>
+    html, body { font-family: 'Inter', system-ui, sans-serif; }
+    .page { display: none; opacity: 0; }
+    .page.active { display: block; opacity: 1; animation: slideUp .35s ease-out forwards; }
+    @keyframes slideUp {
+        0% { opacity: 0; transform: translateY(12px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .toggle-checkbox:checked { right: 0; border-color: #dc2626; }
+    .toggle-checkbox:checked + .toggle-label { background-color: #dc2626; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a3a3a3; }
+
+    .chart-container { position: relative; height: 300px; width: 100%; }
+    .plan-tab.active { background-color: #0a0a0a; color: #fff; }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    .toast { animation: toastIn .25s ease-out forwards; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .toast.out { animation: toastOut .25s ease-in forwards; }
+    @keyframes toastOut { to { opacity: 0; transform: translateY(8px) scale(.97); } }
+
+    .field { width: 100%; background: #fafafa; border: 1px solid #e5e5e5; color: #0a0a0a; border-radius: .5rem; padding: .7rem 1rem; font-size: .875rem; transition: border-color .15s, background .15s; }
+    .field:focus { outline: none; border-color: #dc2626; background: #fff; box-shadow: 0 0 0 3px rgba(220,38,38,.12); }
+    .lbl { display:block; font-size: .75rem; font-weight: 600; color: #525252; margin-bottom: .4rem; }
+
+    .nav-btn { position: relative; }
+    .nav-btn.active-nav::before {
+        content:''; position:absolute; left:-16px; top:50%; transform: translateY(-50%);
+        width:4px; height:22px; background:#dc2626; border-radius: 0 4px 4px 0;
+    }
+    .btn-primary { background:#dc2626; color:#fff; }
+    .btn-primary:hover { background:#b91c1c; }
+</style>
+</head>
+<body class="bg-neutral-50 flex h-screen overflow-hidden text-neutral-800 antialiased">
+
+<!-- Mobile top bar -->
+<div class="md:hidden fixed top-0 inset-x-0 h-16 bg-white/90 backdrop-blur border-b border-neutral-200 flex items-center justify-between px-4 z-40">
+    <button onclick="toggleSidebar()" aria-label="Open menu" class="w-10 h-10 rounded-xl hover:bg-neutral-100 flex items-center justify-center text-neutral-700">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-brand-600 text-white rounded-lg flex items-center justify-center"><i class="fas fa-layer-group text-sm"></i></div>
+        <span class="font-bold text-ink">FinTrack</span>
+    </div>
+    <button onclick="navigate('add-expense')" aria-label="Add record" class="w-10 h-10 rounded-xl hover:bg-neutral-100 flex items-center justify-center text-neutral-700">
+        <i class="fas fa-plus"></i>
+    </button>
+</div>
+
+<div id="sidebar-overlay" onclick="toggleSidebar(false)" class="hidden md:hidden fixed inset-0 bg-black/40 z-40"></div>
+
+<!-- Sidebar -->
+<aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-neutral-200 flex flex-col justify-between transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out">
+    <div>
+        <div class="p-6 flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 bg-brand-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-brand-600/20">
+                <i class="fas fa-layer-group text-xl"></i>
+            </div>
+            <span class="text-xl font-bold tracking-tight text-ink">FinTrack</span>
+        </div>
+        <nav class="px-4 space-y-1.5 font-medium text-sm">
+            <button onclick="navigate('dashboard')" id="nav-dashboard" class="nav-btn active-nav w-full text-left px-4 py-3 rounded-xl bg-ink text-white shadow-md flex items-center gap-3 transition-all">
+                <i class="fas fa-home w-5 text-center text-brand-500"></i> Dashboard
+            </button>
+            <button onclick="navigate('expenses')" id="nav-expenses" class="nav-btn w-full text-left px-4 py-3 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-ink flex items-center gap-3 transition-all">
+                <i class="fas fa-receipt w-5 text-center"></i> Transactions
+            </button>
+            <button onclick="navigate('add-expense')" id="nav-add-expense" class="nav-btn w-full text-left px-4 py-3 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-ink flex items-center gap-3 transition-all">
+                <i class="fas fa-plus-circle w-5 text-center"></i> Add Expense
+            </button>
+            <button onclick="navigate('categories')" id="nav-categories" class="nav-btn w-full text-left px-4 py-3 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-ink flex items-center gap-3 transition-all">
+                <i class="fas fa-shapes w-5 text-center"></i> Categories
+            </button>
+            <button onclick="navigate('budgets')" id="nav-budgets" class="nav-btn w-full text-left px-4 py-3 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-ink flex items-center gap-3 transition-all">
+                <i class="fas fa-chart-pie w-5 text-center"></i> Budgets
+            </button>
+            <button onclick="navigate('insights')" id="nav-insights" class="nav-btn w-full text-left px-4 py-3 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-ink flex items-center gap-3 transition-all">
+                <i class="fas fa-bolt w-5 text-center"></i> Insights
+            </button>
+            <button onclick="navigate('story')" id="nav-story" class="nav-btn w-full text-left px-4 py-3 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-ink flex items-center gap-3 transition-all">
+                <i class="fas fa-book-open w-5 text-center"></i> Monthly Story
+            </button>
+        </nav>
+    </div>
+    <div class="p-4 mx-4 mb-4 rounded-xl bg-neutral-50 border border-neutral-100">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-brand-600"></span>
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Simulated today</p>
+        </div>
+        <p class="text-sm font-bold text-ink" id="today-label">—</p>
+        <button onclick="resetDemo()" class="text-[11px] text-neutral-400 hover:text-brand-600 transition mt-2 font-medium">Reset demo data</button>
+    </div>
+</aside>
+
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto p-5 sm:p-6 lg:p-10 w-full pt-20 md:pt-10">
+
+    <!-- ============ DASHBOARD ============ -->
+    <section id="page-dashboard" class="page active max-w-6xl mx-auto">
+        <div class="flex flex-wrap justify-between items-end gap-4 mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-ink">Overview</h1>
+                <p class="text-sm text-neutral-500 mt-1">Here's what's happening with your money.</p>
+            </div>
+            <button onclick="navigate('add-expense')" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-medium transition shadow-sm shadow-brand-600/20">
+                <i class="fas fa-plus mr-2"></i> Add Record
+            </button>
+        </div>
+
+        <div id="smart-alerts" class="mb-8 space-y-3"></div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200/70 flex flex-col justify-between">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="w-10 h-10 rounded-full bg-ink flex items-center justify-center text-white"><i class="fas fa-wallet"></i></div>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-neutral-500 mb-1">Total Balance</p>
+                    <h2 class="text-3xl font-bold text-ink tracking-tight" id="dash-balance">$0.00</h2>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200/70 flex flex-col justify-between">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="w-10 h-10 rounded-full bg-ink flex items-center justify-center text-white"><i class="fas fa-arrow-down"></i></div>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-neutral-500 mb-1">Income (This Month)</p>
+                    <h2 class="text-2xl font-bold text-ink tracking-tight" id="dash-income">+$0.00</h2>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200/70 flex flex-col justify-between">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="w-10 h-10 rounded-full bg-brand-600 flex items-center justify-center text-white"><i class="fas fa-arrow-up"></i></div>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-neutral-500 mb-1">Expenses (This Month)</p>
+                    <h2 class="text-2xl font-bold text-brand-600 tracking-tight" id="dash-expense">-$0.00</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-neutral-200/70 p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-lg text-ink">Recent Transactions</h3>
+                    <button onclick="navigate('expenses')" class="text-sm font-medium text-brand-600 hover:text-brand-700">View All</button>
+                </div>
+                <div id="dashboard-transactions" class="space-y-4"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-neutral-200/70 p-6">
+                <h3 class="font-bold text-lg text-ink mb-6">Budget Status</h3>
+                <div id="dashboard-budgets" class="space-y-6"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ TRANSACTIONS ============ -->
+    <section id="page-expenses" class="page max-w-5xl mx-auto">
+        <div class="flex flex-wrap justify-between items-end gap-4 mb-6">
+            <h1 class="text-2xl font-bold text-ink">All Transactions</h1>
+            <p class="text-sm text-neutral-500" id="tx-count">—</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-neutral-200/70 overflow-hidden">
+            <div class="p-4 border-b border-neutral-100 bg-neutral-50 flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 text-sm"></i>
+                    <input type="text" id="tx-search" oninput="renderTransactionsPage()" placeholder="Search transactions..."
+                        class="w-full bg-white border border-neutral-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-brand-500">
+                </div>
+                <select id="tx-month-filter" onchange="renderTransactionsPage()"
+                    class="bg-white border border-neutral-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-brand-500 sm:w-48"></select>
+            </div>
+            <div id="all-transactions-list" class="divide-y divide-neutral-100 max-h-[70vh] overflow-y-auto"></div>
+        </div>
+    </section>
+
+    <!-- ============ ADD EXPENSE ============ -->
+    <section id="page-add-expense" class="page max-w-2xl mx-auto">
+        <div class="bg-white rounded-2xl shadow-sm border border-neutral-200/70 p-6 sm:p-8">
+            <h1 class="text-2xl font-bold text-ink mb-2">Record Transaction</h1>
+            <p class="text-sm text-neutral-500 mb-8">Add a new income or expense record.</p>
+
+            <form id="add-form" class="space-y-6">
+                <div class="flex p-1 bg-neutral-100 rounded-lg w-full max-w-xs mx-auto mb-6">
+                    <button type="button" id="btn-type-expense" class="flex-1 py-2 text-sm font-medium bg-white shadow-sm rounded-md text-ink" onclick="setTransactionType('expense')">Expense</button>
+                    <button type="button" id="btn-type-income" class="flex-1 py-2 text-sm font-medium text-neutral-500 rounded-md hover:text-ink" onclick="setTransactionType('income')">Income</button>
+                </div>
+
+                <div class="text-center">
+                    <label class="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Amount</label>
+                    <div class="flex items-center justify-center text-4xl font-bold text-ink">
+                        <span class="text-neutral-400 mr-2">$</span>
+                        <input type="number" id="form-amount" step="0.01" min="0.01" class="w-48 bg-transparent border-none text-center focus:outline-none focus:ring-0 placeholder-neutral-300" placeholder="0.00" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-neutral-100">
+                    <div>
+                        <label class="block text-sm font-medium text-neutral-700 mb-2">Category</label>
+                        <select id="form-category" class="field" required></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-neutral-700 mb-2">Date</label>
+                        <input type="date" id="form-date" class="field" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-neutral-700 mb-2">Notes</label>
+                    <textarea id="form-notes" rows="2" class="field" placeholder="Optional"></textarea>
+                </div>
+
+                <div class="flex items-center justify-between p-4 bg-neutral-50 border border-neutral-100 rounded-xl">
+                    <div>
+                        <h4 class="text-sm font-medium text-ink">Recurring Transaction</h4>
+                        <p class="text-xs text-neutral-500">Flag this to repeat every month</p>
+                    </div>
+                    <div class="relative inline-block w-12 mr-2 align-middle">
+                        <input type="checkbox" id="form-recurring" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 cursor-pointer border-neutral-300 z-10 transition-all right-6"/>
+                        <label for="form-recurring" class="toggle-label block overflow-hidden h-6 rounded-full bg-neutral-300 cursor-pointer transition-colors"></label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary w-full font-medium py-3.5 rounded-xl transition shadow-sm shadow-brand-600/20">Save Transaction</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- ============ CATEGORIES ============ -->
+    <section id="page-categories" class="page max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold text-ink mb-2">Manage Categories</h1>
+        <p class="text-sm text-neutral-500 mb-8">Organize how you track your money.</p>
+
+        <form onsubmit="addCategory(event)" class="bg-white rounded-2xl border border-neutral-200/70 shadow-sm p-5 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+                <label class="lbl">Name</label>
+                <input id="cat-name" class="field" placeholder="e.g. Coffee" required>
+            </div>
+            <div>
+                <label class="lbl">Type</label>
+                <select id="cat-type" class="field">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                </select>
+            </div>
+            <div>
+                <label class="lbl">Icon</label>
+                <select id="cat-icon" class="field">
+                    <option value="fa-tag">Tag</option>
+                    <option value="fa-coffee">Coffee</option>
+                    <option value="fa-plane">Travel</option>
+                    <option value="fa-dumbbell">Fitness</option>
+                    <option value="fa-graduation-cap">Education</option>
+                    <option value="fa-heartbeat">Health</option>
+                    <option value="fa-gift">Gifts</option>
+                    <option value="fa-tshirt">Clothing</option>
+                    <option value="fa-mobile-alt">Phone</option>
+                    <option value="fa-paw">Pets</option>
+                    <option value="fa-chart-line">Investments</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-primary font-medium py-3 rounded-lg transition text-sm shadow-sm shadow-brand-600/20">
+                <i class="fas fa-plus mr-2"></i> Add Category
+            </button>
+        </form>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="categories-grid"></div>
+    </section>
+
+    <!-- ============ BUDGETS ============ -->
+    <section id="page-budgets" class="page max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold text-ink mb-2">Monthly Budgets</h1>
+        <p class="text-sm text-neutral-500 mb-8">Set a ceiling per category and let the detector warn you early.</p>
+
+        <form onsubmit="addBudget(event)" class="bg-white rounded-2xl border border-neutral-200/70 shadow-sm p-5 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div class="md:col-span-2">
+                <label class="lbl">Category</label>
+                <select id="budget-category" class="field" required></select>
+            </div>
+            <div>
+                <label class="lbl">Monthly Limit ($)</label>
+                <input id="budget-limit" type="number" min="1" step="1" class="field" placeholder="400" required>
+            </div>
+            <button type="submit" class="md:col-span-3 btn-primary font-medium py-3 rounded-lg transition text-sm shadow-sm shadow-brand-600/20">
+                <i class="fas fa-plus mr-2"></i> Add Budget
+            </button>
+        </form>
+
+        <div id="budgets-list" class="space-y-4"></div>
+    </section>
+
+    <!-- ============ INSIGHTS ============ -->
+    <section id="page-insights" class="page max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold text-ink mb-2">Analytics &amp; Insights</h1>
+        <p class="text-sm text-neutral-500 mb-8">Deep dive into your financial habits and saving potential.</p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-neutral-200/70">
+                <h3 class="font-bold text-ink mb-4 text-sm uppercase tracking-wider">Spending Breakdown</h3>
+                <div class="chart-container"><canvas id="pieChart"></canvas></div>
+            </div>
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-neutral-200/70">
+                <h3 class="font-bold text-ink mb-4 text-sm uppercase tracking-wider">Daily Spending Trend (Last 10 Days)</h3>
+                <div class="chart-container"><canvas id="lineChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-gradient-to-br from-white to-brand-50 p-6 rounded-2xl shadow-sm border border-brand-100">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-full bg-brand-600 text-white flex items-center justify-center"><i class="fas fa-piggy-bank"></i></div>
+                    <h3 class="font-bold text-ink text-lg">Savings Potential</h3>
+                </div>
+                <p class="text-neutral-600 text-sm mb-4">By analyzing your spending habits, we identified areas where you could cut back without sacrificing too much.</p>
+                <div class="text-4xl font-bold text-brand-700 mb-6" id="savings-potential-total">$0.00</div>
+                <div id="savings-potential-list" class="space-y-3"></div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200/70">
+                <h3 class="font-bold text-ink mb-4 text-lg">Smart Saving Plan</h3>
+                <div class="flex bg-neutral-100 rounded-lg p-1 mb-6">
+                    <button onclick="renderSavingPlan(7)" id="btn-plan-7" class="plan-tab active flex-1 py-2 text-sm font-medium rounded-md transition-colors">7-Day Plan</button>
+                    <button onclick="renderSavingPlan(30)" id="btn-plan-30" class="plan-tab flex-1 py-2 text-sm font-medium text-neutral-500 rounded-md hover:text-ink transition-colors">30-Day Plan</button>
+                </div>
+                <div id="smart-plan-content" class="space-y-4"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ MONTHLY STORY ============ -->
+    <section id="page-story" class="page max-w-6xl mx-auto">
+        <div class="flex flex-wrap justify-between items-end gap-4 mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-ink">Monthly Financial Story</h1>
+                <p class="text-sm text-neutral-500 mt-1">A narrative recap of your month — ready to share.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="shiftStoryMonth(-1)" id="story-prev" aria-label="Previous month"
+                    class="w-10 h-10 rounded-xl bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                    <i class="fas fa-chevron-left text-sm"></i>
+                </button>
+                <span id="story-month-label" class="text-sm font-semibold text-ink min-w-[140px] text-center">—</span>
+                <button onclick="shiftStoryMonth(1)" id="story-next" aria-label="Next month"
+                    class="w-10 h-10 rounded-xl bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                    <i class="fas fa-chevron-right text-sm"></i>
+                </button>
+                <button onclick="exportStory()" class="ml-2 btn-primary px-5 py-2.5 rounded-lg text-sm font-medium transition shadow-sm shadow-brand-600/20">
+                    <i class="fas fa-download mr-2"></i> Export Infographic
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <div class="lg:col-span-3 space-y-6" id="story-narrative"></div>
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-2xl border border-neutral-200/70 shadow-sm p-4 lg:sticky lg:top-2">
+                    <div class="flex items-center justify-between mb-3 px-1">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-neutral-500">Infographic Preview</h3>
+                        <button onclick="exportStory()" class="text-xs font-semibold text-brand-600 hover:text-brand-700">Download PNG</button>
+                    </div>
+                    <canvas id="story-canvas" class="w-full h-auto rounded-xl border border-neutral-200 bg-neutral-100"></canvas>
+                    <p class="text-[11px] text-neutral-400 mt-3 px-1 text-center">Exports at 2160px wide — perfect for sharing.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<div id="toast-container" class="fixed bottom-6 right-6 z-[100] space-y-2 w-[calc(100%-3rem)] max-w-sm"></div>
+
+<script>
+/* =======================================================================
+   STATE + PERSISTENCE
+   ======================================================================= */
+const TODAY = new Date(2026, 8, 10);
+const STORAGE_KEY = 'fintrack-state-v1';
+
+const COLOR_POOL = [
+    'bg-brand-100 text-brand-700', 'bg-neutral-100 text-ink', 'bg-brand-50 text-brand-600',
+    'bg-neutral-200 text-ink', 'bg-black text-white', 'bg-rose-100 text-rose-700',
+    'bg-neutral-900 text-white', 'bg-brand-200 text-brand-800', 'bg-zinc-100 text-zinc-800',
+    'bg-stone-100 text-stone-700'
+];
+
+const state = {
+    transactionType: 'expense',
+    planDays: 7,
+    storyIndex: null,
+    currentStory: null,
+    categories: [
+        { id: 'c1', name: 'Housing',       icon: 'fa-home',           colorClass: 'bg-brand-100 text-brand-700',     type: 'expense', fixed: true  },
+        { id: 'c2', name: 'Dining out',    icon: 'fa-utensils',       colorClass: 'bg-neutral-100 text-ink',         type: 'expense', fixed: false },
+        { id: 'c3', name: 'Transportation',icon: 'fa-car',            colorClass: 'bg-brand-50 text-brand-600',      type: 'expense', fixed: false },
+        { id: 'c4', name: 'Entertainment', icon: 'fa-film',           colorClass: 'bg-neutral-200 text-ink',         type: 'expense', fixed: false },
+        { id: 'c5', name: 'Salary',        icon: 'fa-briefcase',      colorClass: 'bg-black text-white',             type: 'income',  fixed: true  },
+        { id: 'c6', name: 'Groceries',     icon: 'fa-shopping-basket',colorClass: 'bg-rose-100 text-rose-700',       type: 'expense', fixed: false }
+    ],
+    budgets: [
+        { id: 'b1', categoryId: 'c2', limit: 400 },
+        { id: 'b2', categoryId: 'c3', limit: 250 },
+        { id: 'b3', categoryId: 'c6', limit: 600 }
+    ],
+    transactions: [
+        { id: 't1', amount: 4200, categoryId: 'c5', date: '2026-08-01', notes: 'Aug Salary', type: 'income' },
+        { id: 't2', amount: 4200, categoryId: 'c5', date: '2026-09-01', notes: 'Sept Salary', type: 'income' },
+        { id: 't3', amount: 1500, categoryId: 'c1', date: '2026-08-02', notes: 'Aug Rent', type: 'expense' },
+        { id: 't4', amount: 1500, categoryId: 'c1', date: '2026-09-02', notes: 'Sept Rent', type: 'expense' },
+        { id: 't5', amount: 120,  categoryId: 'c6', date: '2026-08-15', notes: 'Whole Foods', type: 'expense' },
+        { id: 't6', amount: 135,  categoryId: 'c6', date: '2026-09-05', notes: 'Trader Joes', type: 'expense' },
+        { id: 't7', amount: 45,   categoryId: 'c2', date: '2026-08-28', notes: 'Lunch', type: 'expense' },
+        { id: 't8', amount: 35,   categoryId: 'c2', date: '2026-08-30', notes: 'Dinner', type: 'expense' },
+        { id: 't9', amount: 120,  categoryId: 'c2', date: '2026-09-07', notes: 'Steakhouse', type: 'expense' },
+        { id: 't10', amount: 80,  categoryId: 'c2', date: '2026-09-09', notes: 'Sushi', type: 'expense' },
+        { id: 't11', amount: 60,  categoryId: 'c3', date: '2026-09-03', notes: 'Gas', type: 'expense' },
+        { id: 't12', amount: 170, categoryId: 'c3', date: '2026-09-08', notes: 'Car repair', type: 'expense' }
+    ]
+};
+
+function saveState() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            transactions: state.transactions,
+            categories: state.categories,
+            budgets: state.budgets
+        }));
+    } catch (e) { /* quota / private mode — ignore */ }
+}
+
+function loadState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (Array.isArray(saved.transactions)) state.transactions = saved.transactions;
+        if (Array.isArray(saved.categories) && saved.categories.length) state.categories = saved.categories;
+        if (Array.isArray(saved.budgets)) state.budgets = saved.budgets;
+    } catch (e) { /* corrupt entry — fall back to seed */ }
+}
+
+function resetDemo() {
+    if (!confirm('Reset all data back to the demo seed?')) return;
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    location.reload();
+}
+
+let pieChartInstance = null;
+let lineChartInstance = null;
+
+/* =======================================================================
+   UTILITIES
+   ======================================================================= */
+const formatMoney = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0);
+const dt = (s) => { const p = String(s).split('-').map(Number); return new Date(p[0], (p[1] || 1) - 1, p[2] || 1); };
+const formatDate = (s) => dt(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const monthLabel = (y, m) => new Date(y, m, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+const getCategory = (id) => state.categories.find(c => c.id === id) ||
+    { id, name: 'Uncategorized', icon: 'fa-tag', colorClass: 'bg-neutral-100 text-neutral-700' };
+const isSameMonth = (d1, d2) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth();
+const getDaysDiff = (d1, d2) => Math.round((d1 - d2) / 86400000);
+
+function showToast(message, tone = 'success') {
+    const map = {
+        success: { bg: 'bg-ink',         icon: 'fa-check-circle text-brand-500' },
+        error:   { bg: 'bg-brand-600',   icon: 'fa-exclamation-circle text-white' },
+        info:    { bg: 'bg-neutral-800', icon: 'fa-info-circle text-white' }
+    };
+    const cfg = map[tone] || map.success;
+    const el = document.createElement('div');
+    el.className = `toast ${cfg.bg} text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg flex items-center gap-3`;
+    el.innerHTML = `<i class="fas ${cfg.icon}"></i><span>${message}</span>`;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 250); }, 2800);
+}
+
+/* =======================================================================
+   NAVIGATION
+   ======================================================================= */
+function toggleSidebar(force) {
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('sidebar-overlay');
+    const isClosed = sb.classList.contains('-translate-x-full');
+    const open = force !== undefined ? force : isClosed;
+    sb.classList.toggle('-translate-x-full', !open);
+    ov.classList.toggle('hidden', !open);
+}
+
+function navigate(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.className = 'nav-btn w-full text-left px-4 py-3 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-ink flex items-center gap-3 transition-all';
+        const icon = btn.querySelector('i');
+        if (icon) icon.classList.remove('text-brand-500');
+    });
+
+    const page = document.getElementById('page-' + pageId);
+    if (!page) return;
+    page.classList.add('active');
+
+    const activeNav = document.getElementById('nav-' + pageId);
+    if (activeNav) {
+        activeNav.className = 'nav-btn active-nav w-full text-left px-4 py-3 rounded-xl bg-ink text-white shadow-md flex items-center gap-3 transition-all';
+        const icon = activeNav.querySelector('i');
+        if (icon) icon.classList.add('text-brand-500');
+    }
+
+    renderAll();
+    toggleSidebar(false);
+    page.parentElement.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* =======================================================================
+   BEHAVIOUR DETECTOR
+   ======================================================================= */
+function runBehaviorDetector() {
+    const container = document.getElementById('smart-alerts');
+    container.innerHTML = '';
+    const alerts = [];
+
+    state.budgets.forEach(b => {
+        const cat = getCategory(b.categoryId);
+        const spent = state.transactions
+            .filter(tx => tx.categoryId === b.categoryId && tx.type === 'expense' && isSameMonth(dt(tx.date), TODAY))
+            .reduce((s, tx) => s + tx.amount, 0);
+        const percent = (spent / b.limit) * 100;
+        if (percent >= 90) {
+            alerts.push({
+                type: 'danger', icon: 'fa-exclamation-triangle',
+                msg: `Your <strong>${cat.name}</strong> budget is nearly exhausted (${percent.toFixed(0)}% used).`
+            });
+        }
+    });
+
+    const thisWeek = {}, lastWeek = {};
+    state.transactions.filter(t => t.type === 'expense').forEach(tx => {
+        const diff = getDaysDiff(TODAY, dt(tx.date));
+        if (diff >= 0 && diff <= 7) thisWeek[tx.categoryId] = (thisWeek[tx.categoryId] || 0) + tx.amount;
+        else if (diff > 7 && diff <= 14) lastWeek[tx.categoryId] = (lastWeek[tx.categoryId] || 0) + tx.amount;
+    });
+
+    Object.keys(thisWeek).forEach(catId => {
+        const now = thisWeek[catId], before = lastWeek[catId] || 0;
+        if (before > 0 && now > before * 1.3) {
+            const increase = (((now - before) / before) * 100).toFixed(0);
+            alerts.push({
+                type: 'warning', icon: 'fa-chart-line',
+                msg: `<strong>${getCategory(catId).name}</strong> spending is up <strong>${increase}%</strong> this week vs last week.`
+            });
+        }
+    });
+
+    if (alerts.length === 0) {
+        container.innerHTML = `
+            <div class="bg-neutral-100 text-neutral-800 p-4 rounded-xl border border-neutral-200 flex items-center gap-3 text-sm">
+                <i class="fas fa-check-circle text-lg text-ink"></i> Your spending behaviour looks great. No unusual spikes detected.
+            </div>`;
+        return;
+    }
+
+    alerts.forEach(a => {
+        const cls = a.type === 'danger'
+            ? 'bg-brand-600 text-white border-brand-700'
+            : 'bg-brand-50 text-brand-800 border-brand-200';
+        container.innerHTML += `
+            <div class="${cls} p-4 rounded-xl border flex items-center gap-3 text-sm shadow-sm">
+                <i class="fas ${a.icon} text-lg"></i><span>${a.msg}</span>
+            </div>`;
+    });
+}
+
+/* =======================================================================
+   DASHBOARD
+   ======================================================================= */
+function renderDashboard() {
+    const currentMonthTx = state.transactions.filter(tx => isSameMonth(dt(tx.date), TODAY));
+
+    let totalIncome = 0, totalExpense = 0;
+    currentMonthTx.forEach(tx => tx.type === 'income' ? totalIncome += tx.amount : totalExpense += tx.amount);
+
+    let balance = 0;
+    state.transactions.forEach(tx => tx.type === 'income' ? balance += tx.amount : balance -= tx.amount);
+
+    document.getElementById('dash-balance').innerText = formatMoney(balance);
+    document.getElementById('dash-income').innerText = '+' + formatMoney(totalIncome);
+    document.getElementById('dash-expense').innerText = '-' + formatMoney(totalExpense);
+
+    const recent = [...state.transactions].sort((a, b) => dt(b.date) - dt(a.date)).slice(0, 4);
+    const recentContainer = document.getElementById('dashboard-transactions');
+    recentContainer.innerHTML = recent.length ? '' : '<p class="text-sm text-neutral-400 py-6 text-center">No transactions yet.</p>';
+
+    recent.forEach(tx => {
+        const cat = getCategory(tx.categoryId);
+        const isInc = tx.type === 'income';
+        recentContainer.innerHTML += `
+            <div class="flex items-center justify-between p-3 hover:bg-neutral-50 rounded-xl transition">
+                <div class="flex items-center gap-4 min-w-0">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cat.colorClass}">
+                        <i class="fas ${cat.icon}"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h4 class="font-semibold text-ink text-sm truncate">${cat.name}</h4>
+                        <p class="text-xs text-neutral-500 truncate">${tx.notes || 'No notes'} • ${formatDate(tx.date)}</p>
+                    </div>
+                </div>
+                <span class="font-bold text-sm shrink-0 ml-3 ${isInc ? 'text-ink' : 'text-brand-600'}">
+                    ${isInc ? '+' : '-'}${formatMoney(tx.amount)}
+                </span>
+            </div>`;
+    });
+
+    const budgetContainer = document.getElementById('dashboard-budgets');
+    budgetContainer.innerHTML = state.budgets.length ? '' : '<p class="text-sm text-neutral-400">No budgets set yet.</p>';
+    state.budgets.forEach(b => {
+        const cat = getCategory(b.categoryId);
+        const spent = currentMonthTx
+            .filter(tx => tx.categoryId === b.categoryId && tx.type === 'expense')
+            .reduce((s, tx) => s + tx.amount, 0);
+        const percent = Math.min((spent / b.limit) * 100, 100);
+        const color = percent > 90 ? 'bg-brand-600' : (percent > 75 ? 'bg-brand-400' : 'bg-ink');
+
+        budgetContainer.innerHTML += `
+            <div>
+                <div class="flex justify-between items-end mb-2">
+                    <span class="text-sm font-medium text-neutral-700">${cat.name}</span>
+                    <span class="text-xs font-semibold text-ink">${formatMoney(spent)} / ${formatMoney(b.limit)}</span>
+                </div>
+                <div class="w-full bg-neutral-100 rounded-full h-2">
+                    <div class="${color} h-2 rounded-full transition-all" style="width: ${percent}%"></div>
+                </div>
+            </div>`;
+    });
+
+    runBehaviorDetector();
+}
+
+/* =======================================================================
+   TRANSACTIONS
+   ======================================================================= */
+function updateTransactionMonthFilter() {
+    const sel = document.getElementById('tx-month-filter');
+    if (!sel) return;
+    const previous = sel.value || 'all';
+    const months = getAvailableMonths().slice().reverse();
+    sel.innerHTML = '<option value="all">All time</option>' +
+        months.map(m => `<option value="${m.year}-${String(m.month + 1).padStart(2, '0')}">${monthLabel(m.year, m.month)}</option>`).join('');
+    sel.value = previous;
+    if (!sel.value) sel.value = 'all';
+}
+
+function renderTransactionsPage() {
+    const container = document.getElementById('all-transactions-list');
+    if (!container) return;
+    const term = (document.getElementById('tx-search')?.value || '').trim().toLowerCase();
+    const monthFilter = document.getElementById('tx-month-filter')?.value || 'all';
+
+    let list = [...state.transactions].sort((a, b) => dt(b.date) - dt(a.date));
+
+    if (monthFilter !== 'all') {
+        const [y, m] = monthFilter.split('-').map(Number);
+        list = list.filter(tx => { const d = dt(tx.date); return d.getFullYear() === y && d.getMonth() === m - 1; });
+    }
+    if (term) {
+        list = list.filter(tx => {
+            const cat = getCategory(tx.categoryId);
+            return cat.name.toLowerCase().includes(term) || (tx.notes || '').toLowerCase().includes(term);
+        });
+    }
+
+    document.getElementById('tx-count').textContent = `${list.length} record${list.length === 1 ? '' : 's'}`;
+
+    if (!list.length) {
+        container.innerHTML = `<div class="p-12 text-center text-neutral-400 text-sm">
+            <i class="fas fa-search text-2xl mb-3 block opacity-40"></i>No transactions match your filters.</div>`;
+        return;
+    }
+
+    container.innerHTML = '';
+    list.forEach(tx => {
+        const cat = getCategory(tx.categoryId);
+        const isInc = tx.type === 'income';
+        container.innerHTML += `
+            <div class="flex items-center justify-between p-4 hover:bg-neutral-50 transition group">
+                <div class="flex items-center gap-4 min-w-0">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cat.colorClass}">
+                        <i class="fas ${cat.icon}"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h4 class="font-semibold text-ink text-sm truncate">${cat.name}</h4>
+                        <p class="text-xs text-neutral-500 mt-0.5 truncate">${tx.notes || '—'}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 shrink-0">
+                    <div class="text-right">
+                        <div class="font-bold text-sm ${isInc ? 'text-ink' : 'text-brand-600'}">
+                            ${isInc ? '+' : '-'}${formatMoney(tx.amount)}
+                        </div>
+                        <div class="text-xs text-neutral-400 mt-0.5">${formatDate(tx.date)}</div>
+                    </div>
+                    <button onclick="deleteTransaction('${tx.id}')" aria-label="Delete"
+                        class="w-8 h-8 rounded-lg text-neutral-300 hover:text-brand-600 hover:bg-brand-50 transition opacity-0 group-hover:opacity-100 focus:opacity-100">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                </div>
+            </div>`;
+    });
+}
+
+function deleteTransaction(id) {
+    state.transactions = state.transactions.filter(t => t.id !== id);
+    saveState();
+    showToast('Transaction deleted', 'info');
+    renderAll();
+}
+
+/* =======================================================================
+   CATEGORIES
+   ======================================================================= */
+function renderCategoriesPage() {
+    const grid = document.getElementById('categories-grid');
+    grid.innerHTML = '';
+    if (!state.categories.length) { grid.innerHTML = '<p class="text-sm text-neutral-400">No categories yet.</p>'; return; }
+
+    state.categories.forEach(cat => {
+        const spent = state.transactions
+            .filter(t => t.categoryId === cat.id && isSameMonth(dt(t.date), TODAY))
+            .reduce((s, t) => s + t.amount, 0);
+
+        grid.innerHTML += `
+            <div class="bg-white p-5 rounded-2xl border border-neutral-200/70 shadow-sm hover:shadow-md hover:border-brand-200 transition">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center ${cat.colorClass}">
+                        <i class="fas ${cat.icon}"></i>
+                    </div>
+                    ${cat.fixed
+                        ? '<span class="text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-100 px-2 py-1 rounded">Fixed</span>'
+                        : `<button onclick="deleteCategory('${cat.id}')" aria-label="Delete category"
+                                class="w-8 h-8 rounded-lg text-neutral-300 hover:text-brand-600 hover:bg-brand-50 transition"><i class="fas fa-trash-alt text-xs"></i></button>`}
+                </div>
+                <h3 class="font-bold text-ink truncate">${cat.name}</h3>
+                <p class="text-xs text-neutral-500 mt-0.5 capitalize">${cat.type}</p>
+                <p class="text-sm font-semibold text-ink mt-3">${formatMoney(spent)}
+                    <span class="text-xs font-normal text-neutral-400">this month</span></p>
+            </div>`;
+    });
+}
+
+function addCategory(e) {
+    e.preventDefault();
+    const name = document.getElementById('cat-name').value.trim();
+    const type = document.getElementById('cat-type').value;
+    const icon = document.getElementById('cat-icon').value;
+    if (!name) return;
+
+    state.categories.push({
+        id: 'c' + Date.now(),
+        name, icon, type,
+        colorClass: COLOR_POOL[state.categories.length % COLOR_POOL.length],
+        fixed: false
+    });
+    e.target.reset();
+    saveState();
+    showToast(`Category "${name}" added`);
+    updateFormCategories();
+    updateBudgetCategoryOptions();
+    renderAll();
+}
+
+function deleteCategory(id) {
+    const used = state.transactions.some(t => t.categoryId === id);
+    if (used) { showToast('Cannot delete — transactions use this category', 'error'); return; }
+    state.categories = state.categories.filter(c => c.id !== id);
+    state.budgets = state.budgets.filter(b => b.categoryId !== id);
+    saveState();
+    showToast('Category removed', 'info');
+    updateFormCategories();
+    updateBudgetCategoryOptions();
+    renderAll();
+}
+
+/* =======================================================================
+   BUDGETS
+   ======================================================================= */
+function updateBudgetCategoryOptions() {
+    const sel = document.getElementById('budget-category');
+    if (!sel) return;
+    const budgeted = state.budgets.map(b => b.categoryId);
+    const options = state.categories.filter(c => c.type === 'expense' && !budgeted.includes(c.id));
+    sel.innerHTML = options.length
+        ? options.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+        : '<option value="">All categories budgeted</option>';
+}
+
+function renderBudgetsPage() {
+    const container = document.getElementById('budgets-list');
+    container.innerHTML = '';
+    updateBudgetCategoryOptions();
+
+    if (!state.budgets.length) {
+        container.innerHTML = `<div class="bg-white p-12 rounded-2xl border border-dashed border-neutral-200 text-center text-neutral-400 text-sm">
+            No budgets yet. Add one above to start tracking.</div>`;
+        return;
+    }
+
+    state.budgets.forEach(b => {
+        const cat = getCategory(b.categoryId);
+        const spent = state.transactions
+            .filter(tx => tx.categoryId === b.categoryId && tx.type === 'expense' && isSameMonth(dt(tx.date), TODAY))
+            .reduce((s, tx) => s + tx.amount, 0);
+
+        const percent = Math.min((spent / b.limit) * 100, 100);
+        const over = spent > b.limit;
+        const pColor = percent > 90 ? 'bg-brand-600' : (percent > 75 ? 'bg-brand-400' : 'bg-ink');
+
+        container.innerHTML += `
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200/70">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${cat.colorClass}">
+                        <i class="fas ${cat.icon} text-lg"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-ink truncate">${cat.name}</h3>
+                        <p class="text-sm text-neutral-500">Monthly Budget</p>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="font-bold ${over ? 'text-brand-600' : 'text-ink'}">${formatMoney(spent)}</p>
+                        <p class="text-xs text-neutral-500">of ${formatMoney(b.limit)}</p>
+                    </div>
+                    <button onclick="deleteBudget('${b.id}')" aria-label="Remove budget"
+                        class="w-8 h-8 rounded-lg text-neutral-300 hover:text-brand-600 hover:bg-brand-50 transition shrink-0">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                </div>
+                <div class="w-full bg-neutral-100 rounded-full h-3 mb-2 overflow-hidden">
+                    <div class="${pColor} h-3 rounded-full transition-all" style="width: ${percent}%"></div>
+                </div>
+                <p class="text-xs ${over ? 'text-brand-600 font-semibold' : 'text-neutral-500'}">
+                    ${over
+                        ? `Over budget by ${formatMoney(spent - b.limit)}`
+                        : `${formatMoney(b.limit - spent)} remaining this month`}
+                </p>
+            </div>`;
+    });
+}
+
+function addBudget(e) {
+    e.preventDefault();
+    const catId = document.getElementById('budget-category').value;
+    const limit = parseFloat(document.getElementById('budget-limit').value);
+    if (!catId) { showToast('All expense categories already have budgets', 'error'); return; }
+    if (!(limit > 0)) { showToast('Enter a valid limit', 'error'); return; }
+    state.budgets.push({ id: 'b' + Date.now(), categoryId: catId, limit });
+    e.target.reset();
+    saveState();
+    showToast('Budget added');
+    renderAll();
+}
+
+function deleteBudget(id) {
+    state.budgets = state.budgets.filter(b => b.id !== id);
+    saveState();
+    showToast('Budget removed', 'info');
+    renderAll();
+}
+
+/* =======================================================================
+   INSIGHTS + CHARTS
+   ======================================================================= */
+const CHART_COLORS = ['#dc2626', '#0a0a0a', '#ef4444', '#525252', '#991b1b', '#a3a3a3', '#7f1d1d', '#404040', '#b91c1c', '#d4d4d4'];
+
+function renderCharts() {
+    const currentMonthExpenses = state.transactions
+        .filter(tx => tx.type === 'expense' && isSameMonth(dt(tx.date), TODAY));
+
+    const categorySums = {};
+    currentMonthExpenses.forEach(tx => {
+        const name = getCategory(tx.categoryId).name;
+        categorySums[name] = (categorySums[name] || 0) + tx.amount;
+    });
+
+    const pieLabels = Object.keys(categorySums);
+    const pieData = Object.values(categorySums);
+
+    if (pieChartInstance) pieChartInstance.destroy();
+    const ctxPie = document.getElementById('pieChart').getContext('2d');
+    pieChartInstance = new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+            labels: pieLabels.length ? pieLabels : ['No data'],
+            datasets: [{
+                data: pieData.length ? pieData : [1],
+                backgroundColor: pieLabels.length ? pieLabels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]) : ['#e5e5e5'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right', labels: { font: { family: 'Inter', size: 11 }, boxWidth: 10, usePointStyle: true } },
+                tooltip: { callbacks: { label: (c) => pieLabels.length ? ` ${c.label}: ${formatMoney(c.parsed)}` : ' No spending yet' } }
+            },
+            cutout: '70%'
+        }
+    });
+
+    const dailySpends = {};
+    for (let i = 9; i >= 0; i--) {
+        const d = new Date(TODAY);
+        d.setDate(d.getDate() - i);
+        dailySpends[d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })] = 0;
+    }
+    currentMonthExpenses.forEach(tx => {
+        const key = dt(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (dailySpends[key] !== undefined) dailySpends[key] += tx.amount;
+    });
+
+    if (lineChartInstance) lineChartInstance.destroy();
+    const ctxLine = document.getElementById('lineChart').getContext('2d');
+    lineChartInstance = new Chart(ctxLine, {
+        type: 'line',
+        data: {
+            labels: Object.keys(dailySpends),
+            datasets: [{
+                label: 'Daily Spending',
+                data: Object.values(dailySpends),
+                borderColor: '#dc2626',
+                backgroundColor: 'rgba(220,38,38,0.08)',
+                borderWidth: 2,
+                tension: 0.35,
+                pointRadius: 3,
+                pointBackgroundColor: '#dc2626',
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ' ' + formatMoney(c.parsed.y) } } },
+            scales: {
+                y: { beginAtZero: true, grid: { borderDash: [4, 4], color: '#e5e5e5' }, ticks: { font: { family: 'Inter', size: 11 } } },
+                x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 11 } } }
+            }
+        }
+    });
+
+    calculateSavingsPotential();
+    renderSavingPlan(state.planDays);
+}
+
+function calculateSavingsPotential() {
+    let total = 0;
+    const list = document.getElementById('savings-potential-list');
+    list.innerHTML = '';
+
+    state.categories.filter(c => !c.fixed && c.type === 'expense').forEach(cat => {
+        const spent = state.transactions
+            .filter(tx => tx.categoryId === cat.id && isSameMonth(dt(tx.date), TODAY))
+            .reduce((s, tx) => s + tx.amount, 0);
+
+        if (spent > 50) {
+            const saving = spent * 0.20;
+            total += saving;
+            list.innerHTML += `
+                <div class="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm border border-neutral-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full ${cat.colorClass} flex items-center justify-center text-xs"><i class="fas ${cat.icon}"></i></div>
+                        <span class="text-sm font-medium text-neutral-800">${cat.name}</span>
+                    </div>
+                    <span class="text-sm font-bold text-brand-600">+${formatMoney(saving)}</span>
+                </div>`;
+        }
+    });
+
+    document.getElementById('savings-potential-total').innerText = formatMoney(total);
+    if (total === 0) list.innerHTML = '<p class="text-sm text-neutral-500">Your variable spending is very low. Great job!</p>';
+}
+
+function renderSavingPlan(days) {
+    state.planDays = days;
+
+    const activeCls = 'plan-tab active flex-1 py-2 text-sm font-medium rounded-md transition-colors';
+    const idleCls = 'plan-tab flex-1 py-2 text-sm font-medium text-neutral-500 rounded-md hover:text-ink transition-colors';
+    document.getElementById('btn-plan-7').className = days === 7 ? activeCls : idleCls;
+    document.getElementById('btn-plan-30').className = days === 30 ? activeCls : idleCls;
+
+    const container = document.getElementById('smart-plan-content');
+    container.innerHTML = '';
+
+    const past30 = state.transactions.filter(tx => tx.type === 'expense' && getDaysDiff(TODAY, dt(tx.date)) <= 30);
+    const caps = [];
+    let totalSavings = 0;
+
+    state.categories.filter(c => !c.fixed && c.type === 'expense').forEach(cat => {
+        const spent30 = past30.filter(tx => tx.categoryId === cat.id).reduce((s, tx) => s + tx.amount, 0);
+        if (spent30 > 0) {
+            const baseline = (spent30 / 30) * days;
+            const cap = baseline * 0.85;
+            const saving = baseline - cap;
+            totalSavings += saving;
+            caps.push({ cat, cap, saving });
+        }
+    });
+
+    if (!caps.length) {
+        container.innerHTML = '<p class="text-sm text-neutral-500">Not enough data to generate a plan yet.</p>';
+        return;
+    }
+
+    container.innerHTML += `
+        <div class="mb-4 bg-neutral-50 p-4 rounded-xl border border-neutral-200 text-center">
+            <p class="text-xs text-neutral-500 font-semibold uppercase tracking-wider mb-1">Projected Savings</p>
+            <p class="text-2xl font-bold text-brand-600">${formatMoney(totalSavings)}</p>
+            <p class="text-xs text-neutral-400 mt-1">If you stick to the limits below for the next ${days} days.</p>
+        </div>`;
+
+    caps.sort((a, b) => b.saving - a.saving).forEach(item => {
+        container.innerHTML += `
+            <div class="flex justify-between items-center border-b border-neutral-100 pb-3 last:border-0">
+                <div>
+                    <p class="font-semibold text-ink text-sm">${item.cat.name}</p>
+                    <p class="text-xs text-neutral-500">Suggested cap: ${formatMoney(item.cap)}</p>
+                </div>
+                <span class="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-1 rounded-md whitespace-nowrap">
+                    Save ${formatMoney(item.saving)}
+                </span>
+            </div>`;
+    });
+}
+
+/* =======================================================================
+   MONTHLY STORY
+   ======================================================================= */
+function getAvailableMonths() {
+    const map = new Map();
+    state.transactions.forEach(t => {
+        const d = dt(t.date);
+        map.set(d.getFullYear() * 12 + d.getMonth(), { year: d.getFullYear(), month: d.getMonth() });
+    });
+    map.set(TODAY.getFullYear() * 12 + TODAY.getMonth(), { year: TODAY.getFullYear(), month: TODAY.getMonth() });
+    return [...map.values()].sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
+}
+
+function buildMonthlyStory(year, month) {
+    const monthStart = new Date(year, month, 1);
+    const isCurrent = isSameMonth(monthStart, TODAY);
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const daysElapsed = isCurrent ? Math.min(TODAY.getDate(), lastDay) : lastDay;
+
+    const monthTx = state.transactions.filter(t => {
+        const d = dt(t.date);
+        return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    const incomeTx = monthTx.filter(t => t.type === 'income');
+    const expenseTx = monthTx.filter(t => t.type === 'expense');
+    const income = incomeTx.reduce((s, t) => s + t.amount, 0);
+    const expense = expenseTx.reduce((s, t) => s + t.amount, 0);
+    const net = income - expense;
+    const savingsRate = income > 0 ? (net / income) * 100 : 0;
+
+    const daily = [];
+    for (let d = 1; d <= daysElapsed; d++) daily.push({ day: d, amount: 0, txns: [] });
+    expenseTx.forEach(t => {
+        const day = dt(t.date).getDate();
+        if (day >= 1 && day <= daysElapsed) {
+            daily[day - 1].amount += t.amount;
+            daily[day - 1].txns.push(t);
+        }
+    });
+
+    let topDay = daily[0], bestDay = daily[0];
+    daily.forEach(d => {
+        if (d.amount > topDay.amount) topDay = d;
+        if (d.amount < bestDay.amount) bestDay = d;
+    });
+    const noSpendDays = daily.filter(d => d.amount === 0).length;
+
+    const catMap = {};
+    expenseTx.forEach(t => catMap[t.categoryId] = (catMap[t.categoryId] || 0) + t.amount);
+    const distribution = Object.entries(catMap).map(([id, amount]) => ({
+        cat: getCategory(id),
+        amount,
+        percent: expense > 0 ? (amount / expense) * 100 : 0
+    })).sort((a, b) => b.amount - a.amount);
+
+    const prevDate = new Date(year, month - 1, 1);
+    const prevExpense = state.transactions
+        .filter(t => {
+            const d = dt(t.date);
+            return t.type === 'expense' && d.getFullYear() === prevDate.getFullYear() && d.getMonth() === prevDate.getMonth();
+        })
+        .reduce((s, t) => s + t.amount, 0);
+
+    const expenseChange = prevExpense > 0 ? ((expense - prevExpense) / prevExpense) * 100 : null;
+    const label = monthLabel(year, month);
+    const shortMonth = label.split(' ')[0];
+
+    const story = {
+        year, month, label, shortMonth, isCurrent, daysElapsed, lastDay,
+        income, expense, net, savingsRate,
+        daily, topDay, bestDay, noSpendDays,
+        distribution, expenseTx, txCount: monthTx.length,
+        prevExpense, expenseChange,
+        periodText: isCurrent
+            ? `${shortMonth} 1 – ${shortMonth} ${daysElapsed} · month to date`
+            : `${shortMonth} 1 – ${shortMonth} ${lastDay}`
+    };
+
+    story.trends = buildTrends(story);
+    return story;
+}
+
+function buildTrends(story) {
+    const trends = [];
+
+    const prevDate = new Date(story.year, story.month - 1, 1);
+    const prevExpenseTx = state.transactions.filter(t => {
+        const d = dt(t.date);
+        return t.type === 'expense' && d.getFullYear() === prevDate.getFullYear() && d.getMonth() === prevDate.getMonth();
+    });
+    const prevMap = {};
+    prevExpenseTx.forEach(t => prevMap[t.categoryId] = (prevMap[t.categoryId] || 0) + t.amount);
+
+    story.distribution.forEach(item => {
+        const before = prevMap[item.cat.id] || 0;
+        if (before > 0) {
+            const change = ((item.amount - before) / before) * 100;
+            if (change >= 25) trends.push({ tone: 'warn', text: `${item.cat.name} rose ${change.toFixed(0)}% vs last month (${formatMoney(item.amount)} vs ${formatMoney(before)}).` });
+            else if (change <= -25) trends.push({ tone: 'good', text: `${item.cat.name} dropped ${Math.abs(change).toFixed(0)}% vs last month. Nice work.` });
+        } else if (prevExpenseTx.length > 0 && item.amount > 0) {
+            trends.push({ tone: 'info', text: `New spending category this month: ${item.cat.name} (${formatMoney(item.amount)}).` });
+        }
+    });
+
+    state.budgets.forEach(b => {
+        const hit = story.distribution.find(d => d.cat.id === b.categoryId);
+        if (hit && hit.amount > b.limit) {
+            trends.push({ tone: 'bad', text: `${hit.cat.name} went ${formatMoney(hit.amount - b.limit)} over its ${formatMoney(b.limit)} budget.` });
+        }
+    });
+
+    if (story.expenseTx.length > 1) {
+        const biggest = [...story.expenseTx].sort((a, b) => b.amount - a.amount)[0];
+        trends.push({ tone: 'info', text: `Largest single expense: ${formatMoney(biggest.amount)} on ${getCategory(biggest.categoryId).name} (${formatDate(biggest.date)}).` });
+    }
+
+    if (story.noSpendDays >= 3) {
+        trends.push({ tone: 'good', text: `${story.noSpendDays} no-spend days out of ${story.daysElapsed} — excellent discipline.` });
+    }
+
+    if (story.expenseChange !== null) {
+        if (story.expenseChange <= -10) trends.push({ tone: 'good', text: `Total spending is down ${Math.abs(story.expenseChange).toFixed(0)}% vs last month.` });
+        else if (story.expenseChange >= 10) trends.push({ tone: 'warn', text: `Total spending is up ${story.expenseChange.toFixed(0)}% vs last month.` });
+    }
+
+    if (!trends.length) trends.push({ tone: 'info', text: 'No unusual activity — a steady, predictable month.' });
+    return trends.slice(0, 6);
+}
+
+function renderStory() {
+    const months = getAvailableMonths();
+    if (state.storyIndex === null || state.storyIndex >= months.length) state.storyIndex = months.length - 1;
+
+    const { year, month } = months[state.storyIndex];
+    const story = buildMonthlyStory(year, month);
+    state.currentStory = story;
+
+    document.getElementById('story-month-label').textContent = story.label;
+    document.getElementById('story-prev').disabled = state.storyIndex === 0;
+    document.getElementById('story-next').disabled = state.storyIndex === months.length - 1;
+
+    renderStoryNarrative(story);
+    drawInfographic(story);
+}
+
+function shiftStoryMonth(delta) {
+    const months = getAvailableMonths();
+    const next = state.storyIndex + delta;
+    if (next < 0 || next >= months.length) return;
+    state.storyIndex = next;
+    renderStory();
+}
+
+function renderStoryNarrative(story) {
+    const el = document.getElementById('story-narrative');
+    const netPositive = story.net >= 0;
+
+    const headline = story.txCount === 0
+        ? `No activity recorded in ${story.label}. Add a transaction to start writing this story.`
+        : netPositive
+            ? `In ${story.shortMonth} you brought in <strong>${formatMoney(story.income)}</strong>, spent <strong>${formatMoney(story.expense)}</strong>, and kept <strong>${formatMoney(story.net)}</strong> — a ${story.savingsRate.toFixed(0)}% savings rate.`
+            : `In ${story.shortMonth} you brought in <strong>${formatMoney(story.income)}</strong> but spent <strong>${formatMoney(story.expense)}</strong>, running <strong>${formatMoney(Math.abs(story.net))}</strong> over your income.`;
+
+    const topDayText = story.topDay && story.topDay.amount > 0 ? `${story.shortMonth} ${story.topDay.day}` : '—';
+    const topDaySub = story.topDay && story.topDay.txns.length
+        ? `${story.topDay.txns.length} transaction${story.topDay.txns.length === 1 ? '' : 's'} · mostly ${getCategory([...story.topDay.txns].sort((a, b) => b.amount - a.amount)[0].categoryId).name}`
+        : 'No spending recorded';
+
+    const bestDayText = story.bestDay ? `${story.shortMonth} ${story.bestDay.day}` : '—';
+    const bestDaySub = story.bestDay && story.bestDay.amount === 0
+        ? 'A perfect no-spend day 🎉'
+        : story.bestDay ? `Only ${formatMoney(story.bestDay.amount)} spent` : '—';
+
+    const maxCat = story.distribution.length ? story.distribution[0].amount : 0;
+
+    el.innerHTML = `
+        <div class="bg-gradient-to-br from-ink to-neutral-800 text-white p-6 sm:p-7 rounded-2xl shadow-sm relative overflow-hidden">
+            <div class="h-1 w-16 bg-brand-600 rounded-full mb-6"></div>
+            <p class="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">The Headline</p>
+            <p class="text-lg sm:text-xl leading-relaxed font-medium">${headline}</p>
+            <div class="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/10">
+                <div>
+                    <p class="text-xs text-neutral-400 mb-1">Income</p>
+                    <p class="text-lg font-bold text-white">${formatMoney(story.income)}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-neutral-400 mb-1">Expenses</p>
+                    <p class="text-lg font-bold text-brand-400">${formatMoney(story.expense)}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-neutral-400 mb-1">Saved</p>
+                    <p class="text-lg font-bold ${netPositive ? 'text-white' : 'text-brand-400'}">${formatMoney(story.net)}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm border-l-4 border-l-brand-600">
+                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">Top Spending Day</p>
+                <p class="text-2xl font-bold text-ink">${topDayText}</p>
+                <p class="text-xl font-bold text-brand-600 mt-1">${story.topDay ? formatMoney(story.topDay.amount) : '$0.00'}</p>
+                <p class="text-xs text-neutral-500 mt-2">${topDaySub}</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm border-l-4 border-l-ink">
+                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">Biggest Savings Day</p>
+                <p class="text-2xl font-bold text-ink">${bestDayText}</p>
+                <p class="text-xl font-bold text-ink mt-1">${story.bestDay ? formatMoney(story.bestDay.amount) : '$0.00'} spent</p>
+                <p class="text-xs text-neutral-500 mt-2">${bestDaySub}</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm">
+            <div class="flex items-center justify-between mb-5">
+                <p class="text-xs font-bold uppercase tracking-wider text-neutral-400">Where Your Money Went</p>
+                <p class="text-xs text-neutral-400">${story.distribution.length} categories</p>
+            </div>
+            ${story.distribution.length === 0
+                ? '<p class="text-sm text-neutral-400">No expenses recorded this month.</p>'
+                : story.distribution.map(item => `
+                    <div class="mb-4 last:mb-0">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ${item.cat.colorClass}">
+                                    <i class="fas ${item.cat.icon}"></i>
+                                </span>
+                                <span class="text-sm font-semibold text-neutral-800 truncate">${item.cat.name}</span>
+                            </div>
+                            <div class="text-right shrink-0 ml-3">
+                                <span class="text-sm font-bold text-ink">${formatMoney(item.amount)}</span>
+                                <span class="text-xs text-neutral-400 ml-2">${item.percent.toFixed(0)}%</span>
+                            </div>
+                        </div>
+                        <div class="w-full bg-neutral-100 rounded-full h-2">
+                            <div class="h-2 rounded-full transition-all" style="width: ${maxCat ? (item.amount / maxCat) * 100 : 0}%; background: linear-gradient(90deg,#dc2626,#7f1d1d)"></div>
+                        </div>
+                    </div>`).join('')}
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-5">Unusual Trends &amp; Wins</p>
+            <div class="space-y-3">
+                ${story.trends.map(t => {
+                    const tone = {
+                        good: ['bg-neutral-100 text-ink', 'fa-arrow-trend-down'],
+                        bad:  ['bg-brand-50 text-brand-600', 'fa-circle-exclamation'],
+                        warn: ['bg-brand-50 text-brand-600', 'fa-arrow-trend-up'],
+                        info: ['bg-neutral-100 text-neutral-600', 'fa-circle-info']
+                    }[t.tone] || ['bg-neutral-100 text-neutral-500', 'fa-circle-info'];
+                    return `
+                        <div class="flex items-start gap-3">
+                            <span class="w-7 h-7 rounded-lg ${tone[0]} flex items-center justify-center text-xs shrink-0 mt-0.5">
+                                <i class="fas ${tone[1]}"></i>
+                            </span>
+                            <p class="text-sm text-neutral-700 leading-relaxed">${t.text}</p>
+                        </div>`;
+                }).join('')}
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-neutral-200/70 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">Monthly Performance</p>
+            <p class="text-sm text-neutral-700 leading-relaxed">
+                ${story.prevExpense > 0
+                    ? `You spent <strong>${formatMoney(story.expense)}</strong> this month versus <strong>${formatMoney(story.prevExpense)}</strong> last month
+                       (${story.expenseChange >= 0 ? 'up' : 'down'} ${Math.abs(story.expenseChange).toFixed(0)}%).`
+                    : `You spent <strong>${formatMoney(story.expense)}</strong> this month.`}
+                ${story.savingsRate >= 20
+                    ? ` Your ${story.savingsRate.toFixed(0)}% savings rate is above the 20% benchmark — keep it up.`
+                    : story.savingsRate > 0
+                        ? ` A ${story.savingsRate.toFixed(0)}% savings rate is a solid start; pushing toward 20% would accelerate your goals.`
+                        : ` There was no net saving this month — trimming variable categories is the fastest lever.`}
+            </p>
+        </div>`;
+}
+
+/* =======================================================================
+   INFOGRAPHIC EXPORT (canvas, no external deps)
+   ======================================================================= */
+const INFO_W = 1080;
+const INFO_SCALE = 2;
+
+function rr(ctx, x, y, w, h, r, fill, stroke) {
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+}
+
+function txt(ctx, str, x, y, opts = {}) {
+    const { size = 16, weight = 400, color = '#0a0a0a', align = 'left', baseline = 'alphabetic' } = opts;
+    ctx.font = `${weight} ${size}px Inter, system-ui, -apple-system, "Segoe UI", sans-serif`;
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.textBaseline = baseline;
+    ctx.fillText(str, x, y);
+}
+
+function truncate(ctx, str, maxWidth) {
+    if (ctx.measureText(str).width <= maxWidth) return str;
+    let out = str;
+    while (out.length > 1 && ctx.measureText(out + '…').width > maxWidth) out = out.slice(0, -1);
+    return out + '…';
+}
+
+function drawInfographic(story) {
+    const canvas = document.getElementById('story-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const PAD = 64, GAP = 26;
+    const HEADER_H = 210, STATS_H = 148, HILITE_H = 172;
+    const SECTION_TITLE_H = 48, CAT_ROW_H = 74, TREND_ROW_H = 52, FOOTER_H = 100;
+
+    const cats = story.distribution.slice(0, 6);
+    const trends = story.trends.slice(0, 5);
+    const catRows = Math.max(cats.length, 1);
+    const trendRows = Math.max(trends.length, 1);
+
+    const H = HEADER_H + GAP + STATS_H + GAP + HILITE_H + GAP
+        + SECTION_TITLE_H + catRows * CAT_ROW_H
+        + GAP + SECTION_TITLE_H + trendRows * TREND_ROW_H
+        + GAP + FOOTER_H;
+
+    canvas.width = INFO_W * INFO_SCALE;
+    canvas.height = H * INFO_SCALE;
+    ctx.setTransform(INFO_SCALE, 0, 0, INFO_SCALE, 0, 0);
+
+    // Background
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(0, 0, INFO_W, H);
+
+    // Header
+    const grad = ctx.createLinearGradient(0, 0, INFO_W, HEADER_H);
+    grad.addColorStop(0, '#0a0a0a');
+    grad.addColorStop(1, '#171717');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, INFO_W, HEADER_H);
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(0, HEADER_H - 6, INFO_W, 6);
+
+    txt(ctx, 'MONTHLY FINANCIAL STORY', PAD, 62, { size: 15, weight: 800, color: '#a3a3a3' });
+    txt(ctx, story.label, PAD, 122, { size: 46, weight: 800, color: '#ffffff' });
+    txt(ctx, story.periodText, PAD, 160, { size: 17, weight: 400, color: '#a3a3a3' });
+    txt(ctx, 'FinTrack', INFO_W - PAD, 62, { size: 20, weight: 700, color: '#ffffff', align: 'right' });
+    txt(ctx, `${story.txCount} transactions`, INFO_W - PAD, 160, { size: 17, weight: 500, color: '#a3a3a3', align: 'right' });
+
+    let y = HEADER_H + GAP;
+
+    // Stat cards
+    const cardW = (INFO_W - PAD * 2 - GAP * 2) / 3;
+    const stats = [
+        { label: 'INCOME',    value: formatMoney(story.income),  color: '#0a0a0a', sub: story.income > 0 ? 'Money in' : 'No income' },
+        { label: 'EXPENSES',  value: formatMoney(story.expense), color: '#dc2626', sub: `${cats.length} categories` },
+        { label: 'NET SAVED', value: (story.net >= 0 ? '+' : '-') + formatMoney(Math.abs(story.net)),
+          color: story.net >= 0 ? '#0a0a0a' : '#dc2626', sub: `${story.savingsRate.toFixed(0)}% of income` }
+    ];
+
+    stats.forEach((s, i) => {
+        const x = PAD + i * (cardW + GAP);
+        rr(ctx, x, y, cardW, STATS_H, 18, '#ffffff', '#e5e5e5');
+        txt(ctx, s.label, x + 26, y + 42, { size: 13, weight: 800, color: '#a3a3a3' });
+        txt(ctx, s.value, x + 26, y + 94, { size: 32, weight: 800, color: s.color });
+        txt(ctx, s.sub, x + 26, y + 124, { size: 14, weight: 500, color: '#a3a3a3' });
+    });
+
+    y += STATS_H + GAP;
+
+    // Highlight cards
+    const hlW = (INFO_W - PAD * 2 - GAP) / 2;
+
+    rr(ctx, PAD, y, hlW, HILITE_H, 18, '#ffffff', '#e5e5e5');
+    rr(ctx, PAD + 22, y + 26, 6, HILITE_H - 52, 3, '#dc2626');
+    txt(ctx, 'TOP SPENDING DAY', PAD + 46, y + 44, { size: 13, weight: 800, color: '#a3a3a3' });
+    txt(ctx, story.topDay && story.topDay.amount > 0 ? `${story.shortMonth} ${story.topDay.day}` : '—',
+        PAD + 46, y + 86, { size: 27, weight: 800, color: '#0a0a0a' });
+    txt(ctx, story.topDay ? formatMoney(story.topDay.amount) : '$0.00',
+        PAD + 46, y + 126, { size: 23, weight: 700, color: '#dc2626' });
+    ctx.font = '400 15px Inter, system-ui, sans-serif';
+    txt(ctx, truncate(ctx,
+        story.topDay && story.topDay.txns.length
+            ? `${story.topDay.txns.length} transaction${story.topDay.txns.length === 1 ? '' : 's'} · mostly ${getCategory([...story.topDay.txns].sort((a, b) => b.amount - a.amount)[0].categoryId).name}`
+            : 'No spending recorded',
+        hlW - 70), PAD + 46, y + 154, { size: 15, weight: 400, color: '#737373' });
+
+    const x2 = PAD + hlW + GAP;
+    rr(ctx, x2, y, hlW, HILITE_H, 18, '#ffffff', '#e5e5e5');
+    rr(ctx, x2 + 22, y + 26, 6, HILITE_H - 52, 3, '#0a0a0a');
+    txt(ctx, 'BIGGEST SAVINGS DAY', x2 + 46, y + 44, { size: 13, weight: 800, color: '#a3a3a3' });
+    txt(ctx, story.bestDay ? `${story.shortMonth} ${story.bestDay.day}` : '—',
+        x2 + 46, y + 86, { size: 27, weight: 800, color: '#0a0a0a' });
+    txt(ctx, story.bestDay ? `${formatMoney(story.bestDay.amount)} spent` : '$0.00 spent',
+        x2 + 46, y + 126, { size: 23, weight: 700, color: '#0a0a0a' });
+    txt(ctx, story.bestDay && story.bestDay.amount === 0 ? 'A perfect no-spend day' : 'Your lightest spending day',
+        x2 + 46, y + 154, { size: 15, weight: 400, color: '#737373' });
+
+    y += HILITE_H + GAP;
+
+    // Category distribution
+    txt(ctx, 'WHERE YOUR MONEY WENT', PAD, y + 30, { size: 15, weight: 800, color: '#0a0a0a' });
+    y += SECTION_TITLE_H;
+
+    if (!cats.length) {
+        txt(ctx, 'No expenses recorded this month.', PAD, y + 30, { size: 17, weight: 400, color: '#a3a3a3' });
+    } else {
+        const maxAmount = cats[0].amount;
+        cats.forEach((c, i) => {
+            const rowY = y + i * CAT_ROW_H;
+            const nameY = rowY + 22;
+            const barY = rowY + 40;
+            const barW = INFO_W - PAD * 2;
+
+            ctx.font = '600 18px Inter, system-ui, sans-serif';
+            const name = truncate(ctx, c.cat.name, barW - 260);
+            txt(ctx, name, PAD, nameY, { size: 18, weight: 600, color: '#0a0a0a' });
+            txt(ctx, formatMoney(c.amount), INFO_W - PAD, nameY, { size: 18, weight: 700, color: '#0a0a0a', align: 'right' });
+            txt(ctx, `${c.percent.toFixed(0)}%`, INFO_W - PAD - 130, nameY, { size: 15, weight: 600, color: '#a3a3a3', align: 'right' });
+
+            rr(ctx, PAD, barY, barW, 12, 6, '#e5e5e5');
+            const w = Math.max(10, barW * (c.amount / maxAmount));
+            const barGrad = ctx.createLinearGradient(PAD, 0, PAD + w, 0);
+            barGrad.addColorStop(0, '#dc2626');
+            barGrad.addColorStop(1, '#7f1d1d');
+            rr(ctx, PAD, barY, w, 12, 6, barGrad);
+        });
+    }
+    y += catRows * CAT_ROW_H + GAP;
+
+    // Trends
+    txt(ctx, 'UNUSUAL TRENDS & WINS', PAD, y + 30, { size: 15, weight: 800, color: '#0a0a0a' });
+    y += SECTION_TITLE_H;
+
+    trends.forEach((t, i) => {
+        const rowY = y + i * TREND_ROW_H;
+        const col = t.tone === 'good' ? '#0a0a0a'
+            : t.tone === 'bad' ? '#dc2626'
+                : t.tone === 'warn' ? '#ef4444' : '#525252';
+
+        ctx.beginPath();
+        ctx.arc(PAD + 7, rowY + 20, 7, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.fill();
+
+        ctx.font = '400 17px Inter, system-ui, sans-serif';
+        const line = truncate(ctx, t.text, INFO_W - PAD * 2 - 44);
+        txt(ctx, line, PAD + 28, rowY + 26, { size: 17, weight: 400, color: '#404040' });
+    });
+
+    y += trendRows * TREND_ROW_H + GAP;
+
+    // Footer
+    ctx.fillStyle = '#e5e5e5';
+    ctx.fillRect(PAD, y, INFO_W - PAD * 2, 1.5);
+    txt(ctx, `Generated by FinTrack · ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+        PAD, y + 50, { size: 15, weight: 500, color: '#a3a3a3' });
+    txt(ctx, 'Small habits compound.', INFO_W - PAD, y + 50, { size: 15, weight: 700, color: '#dc2626', align: 'right' });
+}
+
+function exportStory() {
+    const canvas = document.getElementById('story-canvas');
+    if (!canvas || !canvas.width || !state.currentStory) { showToast('Nothing to export yet', 'error'); return; }
+    const filename = `fintrack-story-${state.currentStory.label.toLowerCase().replace(/\s+/g, '-')}.png`;
+    try {
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showToast('Infographic downloaded');
+    } catch (err) {
+        showToast('Export failed — try again', 'error');
+    }
+}
+
+/* =======================================================================
+   ADD EXPENSE FORM
+   ======================================================================= */
+function updateFormCategories() {
+    const select = document.getElementById('form-category');
+    if (!select) return;
+    const options = state.categories.filter(c => c.type === state.transactionType);
+    select.innerHTML = options.length
+        ? options.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+        : '<option value="">No categories — add one first</option>';
+}
+
+function setTransactionType(type) {
+    state.transactionType = type;
+    const expBtn = document.getElementById('btn-type-expense');
+    const incBtn = document.getElementById('btn-type-income');
+
+    if (type === 'expense') {
+        expBtn.className = 'flex-1 py-2 text-sm font-medium bg-white shadow-sm rounded-md text-ink';
+        incBtn.className = 'flex-1 py-2 text-sm font-medium text-neutral-500 rounded-md hover:text-ink';
+    } else {
+        incBtn.className = 'flex-1 py-2 text-sm font-medium bg-white shadow-sm rounded-md text-ink';
+        expBtn.className = 'flex-1 py-2 text-sm font-medium text-neutral-500 rounded-md hover:text-ink';
+    }
+    updateFormCategories();
+}
+
+document.getElementById('add-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const amount = parseFloat(document.getElementById('form-amount').value);
+    const catId = document.getElementById('form-category').value;
+    const date = document.getElementById('form-date').value;
+    const notes = document.getElementById('form-notes').value.trim();
+    const recurring = document.getElementById('form-recurring').checked;
+
+    if (!(amount > 0)) { showToast('Enter an amount greater than zero', 'error'); return; }
+    if (!catId) { showToast('Add a category first', 'error'); return; }
+    if (!date) { showToast('Pick a date', 'error'); return; }
+
+    state.transactions.push({
+        id: 't' + Date.now(),
+        amount: Math.round(amount * 100) / 100,
+        categoryId: catId, date, notes, recurring,
+        type: state.transactionType
+    });
+
+    saveState();
+    this.reset();
+    document.getElementById('form-date').value = TODAY.toISOString().slice(0, 10);
+    showToast('Transaction saved');
+    navigate('dashboard');
+});
+
+/* =======================================================================
+   RENDER ORCHESTRATION + INIT
+   ======================================================================= */
+function renderAll() {
+    renderDashboard();
+    renderTransactionsPage();
+    renderCategoriesPage();
+    renderBudgetsPage();
+    updateTransactionMonthFilter();
+
+    const activeId = document.querySelector('.page.active')?.id;
+    if (activeId === 'page-insights') renderCharts();
+    if (activeId === 'page-story') renderStory();
+}
+
+(function init() {
+    loadState();
+
+    document.getElementById('today-label').textContent =
+        TODAY.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    document.getElementById('form-date').value = TODAY.toISOString().slice(0, 10);
+
+    updateFormCategories();
+    updateBudgetCategoryOptions();
+    updateTransactionMonthFilter();
+    renderAll();
+
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => { if (state.currentStory) drawInfographic(state.currentStory); });
+    }
+})();
+</script>
+</body>
+</html>
